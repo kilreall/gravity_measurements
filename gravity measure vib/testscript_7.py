@@ -52,13 +52,13 @@ k =  (384.2304844685*1e12 + 4.27167663181519*1e9 - 229.8518*1e6 - 1e9)/c + (384.
 k = k*2*np.pi
 #print(k)
 start_freq = 90582400/70*5282
-dt = 30e-3 # s
+dt = 30e-3 # s для чирпирования
 n = 101 # количество точек
 T = 12e-3 # s временной интервал между пи импульсами
 M = 0
 Tg = 0.0027# T1:0.4;T2:0.089;T4:0.0226;T6:0.0109;T8:0.0061;T10:0.00357;T12:0.0027; # пристрелка периода для fitа
 gR = 9.68
-Tf = 29210*1e-6 # время прохода без
+Tf = 29210*1e-6 # полное време подготовки атомов
 TF = Tf+2*T
 ty = 40e-6 # s длительность pi/2 импульса
 OR = np.pi/2/ty
@@ -66,7 +66,7 @@ r = 100000
 
 
 # чтение csv P(a)
-file_path = 'data\data_T_12_ms.csv' 
+file_path = 'gravity measure vib\data\data_T_12_ms.csv' 
 data = np.genfromtxt(file_path, delimiter=',', names=True, dtype=None)
 data = np.array(data.tolist())
 
@@ -77,7 +77,7 @@ mdata = np.linspace(mdata[0], mdata[-1], n) # тестовое для модел
 mdata = np.vstack((mdata, (mdata-start_freq)/dt)) # скорости чирпирования
 tidata = np.sin(T*T*(k*gR-2*np.pi*mdata[1]))
 
-filepath = "data\kt7.csv"
+filepath = "gravity measure vib\data\kkt11.csv"
 adata = np.genfromtxt(filepath, delimiter=',', skip_header=1) 
 ta = adata[:,0]
 ta = ta-ta[0]
@@ -85,8 +85,13 @@ a = adata[:,1]/150
 ta, indices = np.unique(ta, return_inverse=True)
 a = np.bincount(indices, weights=a) / np.bincount(indices)
 
+plt.figure(1)
+
+
 a = np.interp(np.linspace(ta[0], ta[-1], len(ta)*10), ta, a)
 ta = np.linspace(ta[0], ta[-1], len(ta)*10)
+
+plt.plot(ta, a)
 
 # Вычисляем FFT
 N = len(ta)
@@ -104,10 +109,12 @@ fft_v[1:] = fft_a[1:] / (1j * omega[1:])  # Игнорируем нулевую 
 
 # 4. Обратное FFT → v(t)
 v = np.fft.ifft(fft_v).real  # Отбрасываем мнимую часть (погрешности вычислений)
-
+v = v - np.mean(v)
+plt.plot(ta, v)
 
 
 #print(ta)
+plt.figure(2)
 plt.plot(mdata[1], tidata)
 vfunc = np.vectorize(fa)
 fvibm = []
@@ -136,7 +143,7 @@ A, w, ph, s = par
 sg = sign(A)
 dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
 dg = 1/k/T**2/(A/dA)
-print(dg*1e8)
+print(dg*1e8*np.sqrt(TF*n))
 
 
 plt.scatter(mdata[1], tidata, color="orange")
