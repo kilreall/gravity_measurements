@@ -7,6 +7,17 @@ import matplotlib
 
 from scipy.integrate import simps
 
+def copym(arr, n):
+    if len(arr) == 0:
+        return np.array([])
+    
+    last_element = arr[-1]
+    base_copy = np.tile(arr, n)
+    offsets = np.repeat(np.arange(n) * last_element, len(arr))
+    
+    return base_copy + offsets
+
+
 def save_numpy_array(array, filename):
     """Сохраняет массив NumPy в файл"""
     np.save(filename, array)
@@ -34,7 +45,7 @@ def gm(m, w, ph):
     return (sg*np.pi/2 + 2*np.pi*m-ph)/w
 
 def fa(t):
-    if 0 < t <= ty:
+    if 0 <= t <= ty:
         return 2/OR*(1-np.cos(OR*t/2))
     elif ty < t <= ty+T:
         return t + 2/OR -ty
@@ -77,7 +88,7 @@ mdata = np.linspace(mdata[0], mdata[-1], n) # тестовое для модел
 mdata = np.vstack((mdata, (mdata-start_freq)/dt)) # скорости чирпирования
 tidata = np.sin(T*T*(k*gR-2*np.pi*mdata[1]))
 
-filepath = "gravity measure vib\data\kkt11.csv"
+filepath = "gravity measure vib\data\kkt11.csv" # now concentrate on kkt11 and kt7
 adata = np.genfromtxt(filepath, delimiter=',', skip_header=1) 
 ta = adata[:,0]
 ta = ta-ta[0]
@@ -87,9 +98,9 @@ a = np.bincount(indices, weights=a) / np.bincount(indices)
 
 plt.figure(1)
 
-
-a = np.interp(np.linspace(ta[0], ta[-1], len(ta)*10), ta, a)
-ta = np.linspace(ta[0], ta[-1], len(ta)*10)
+d = 1000 # points amount multiplier
+a = np.interp(np.linspace(ta[0], ta[-1], len(ta)*d), ta, a)
+ta = np.linspace(ta[0], ta[-1], len(ta)*d)
 
 plt.plot(ta, a)
 
@@ -117,28 +128,34 @@ plt.plot(ta, v)
 plt.figure(2)
 plt.plot(mdata[1], tidata)
 vfunc = np.vectorize(fa)
-fvibm = []
+fvibm = [] # debug massive for fvibtest
+fvibn = [] # debug massive for fvib
 
 dl = int((4*ty+2*T)/dt)
 t1, t2, t3, t4, t5, t6 = np.argmin(np.abs(0-ta)), np.argmin(np.abs(ty-ta))+1, np.argmin(np.abs(ty+T-ta)), np.argmin(np.abs(3*ty+T-ta))+1, np.argmin(np.abs(3*ty+2*T-ta)), np.argmin(np.abs(4*ty+2*T-ta))+1
 m = 5 # ta repeats
-ta = np.tile(ta, m) # repeated m times ta
+ta = copym(ta, m) # repeated m times ta
 v = np.tile(v, m) # repeated m times v
+a = np.tile(v, m) # repeated m times a
 for i in range(len(mdata[1])): # коррекция скорости чирпирования
     #print(t1, t2, t3, t4, t5, t6)
-    fvibtest = k*(simps(v[t1:t2], ta[t1:t2])-2*simps(v[t3:t4],ta[t3:t4])+simps(v[t5:t6],ta[t5:t6]))
-    fvibm.append(fvibtest)
-    tidata[i] = np.sin((k*gR-2*np.pi*mdata[1, i])*T**2+fvibtest)
+    # fvibtest = k*(simps(v[t1:t2], ta[t1:t2])-2*simps(v[t3:t4],ta[t3:t4])+simps(v[t5:t6],ta[t5:t6]))
+    # fvibm.append(fvibtest)
+    # tidata[i] = np.sin((k*gR-2*np.pi*mdata[1, i])*T**2+fvibtest)
 
-    #fat = vfunc(ta[t1:t6]-ta[t1])
-    #intvib = fat*a[t1:t6]
-    #fvib = k*simps(intvib, ta[t1:t6])
+    fat = vfunc(ta[t1:t6]-ta[t1])
+    #print(ta[t1:t6]-ta[t1])
+    #print(fat)
+    intvib = fat*a[t1:t6]
+    fvib = k*simps(intvib, ta[t1:t6])
+    fvibn.append(fvib)
     t1, t2, t3, t4, t5, t6 = t1+dl, t2+dl, t3+dl, t4+dl, t5+dl, t6+dl
-    # mdata[1,i] = mdata[1,i] - 2*np.pi*fvib/T**2
+    mdata[1,i] = mdata[1,i] - 2*np.pi*fvib/T**2 # 2pi?
 
 #print(t1, t2, t3, t4, t5, t6)
 
 print(np.std(np.array(fvibm))/k/T/T*1e8)
+print(np.std(np.array(fvibn))/k/T/T*1e8)
 initial_guess = [1, 2*np.pi*T*T, 0, 0] 
 par, cov = curve_fit(sins, mdata[1], tidata, p0=initial_guess)
 A, w, ph, s = par
