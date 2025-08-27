@@ -125,13 +125,15 @@ for i in range(len(mdata[1])): # коррекция скорости чирпи�
     #print(t1, t2, t3, t4, t5, t6)
     t1, t2, t3, t4, t5, t6 = t1%(len(ta)-1), t2%(len(ta)-1), t3%(len(ta)-1), t4%(len(ta)-1), t5%(len(ta)-1), t6%(len(ta)-1)
     fvibtest = k*(simps(v[t1:t2], ta[t1:t2])-2*simps(v[t3:t4],ta[t3:t4])+simps(v[t5:t6],ta[t5:t6]))
-    t1, t2, t3, t4, t5, t6 = t1+dl, t2+dl, t3+dl, t4+dl, t5+dl, t6+dl
     fvibm.append(fvibtest)
     tidata[i] = np.sin((k*gR-2*np.pi*mdata[1, i])*T**2+fvibtest)
-    #print(fvibtest/k/T/T*1e8)
-    # fat = vfunc(ta[t1:t6])
+    print(ta)
+    print(t1, t6)
+    print(len(ta))
+    fat = vfunc(ta[t1:t6]-ta[t1])
     # intvib = fat*a[t1:t6]
     # fvib = k*simps(intvib, ta[t1:t6])
+    t1, t2, t3, t4, t5, t6 = t1+dl, t2+dl, t3+dl, t4+dl, t5+dl, t6+dl
     # mdata[1,i] = mdata[1,i] - 2*np.pi*fvib/T**2
 
 #print(t1, t2, t3, t4, t5, t6)
