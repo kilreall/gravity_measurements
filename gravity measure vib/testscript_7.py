@@ -93,12 +93,13 @@ adata = np.genfromtxt(filepath, delimiter=',', skip_header=1)
 ta = adata[:,0]
 ta = ta-ta[0]
 a = adata[:,1]/150
-ta, indices = np.unique(ta, return_inverse=True)
+ta, indices = np.unique(ta, return_inverse=True) # in origin data the same value repeats
 a = np.bincount(indices, weights=a) / np.bincount(indices)
+
 
 plt.figure(1)
 
-d = 1000 # points amount multiplier
+d = 100 # points amount multiplier
 a = np.interp(np.linspace(ta[0], ta[-1], len(ta)*d), ta, a)
 ta = np.linspace(ta[0], ta[-1], len(ta)*d)
 
@@ -126,7 +127,7 @@ plt.plot(ta, v)
 
 #print(ta)
 plt.figure(2)
-plt.plot(mdata[1], tidata)
+plt.plot(mdata[1], tidata, label = "clear")
 vfunc = np.vectorize(fa)
 fvibm = [] # debug massive for fvibtest
 fvibn = [] # debug massive for fvib
@@ -139,9 +140,9 @@ v = np.tile(v, m) # repeated m times v
 a = np.tile(v, m) # repeated m times a
 for i in range(len(mdata[1])): # коррекция скорости чирпирования
     #print(t1, t2, t3, t4, t5, t6)
-    # fvibtest = k*(simps(v[t1:t2], ta[t1:t2])-2*simps(v[t3:t4],ta[t3:t4])+simps(v[t5:t6],ta[t5:t6]))
-    # fvibm.append(fvibtest)
-    # tidata[i] = np.sin((k*gR-2*np.pi*mdata[1, i])*T**2+fvibtest)
+    fvibtest = k*(simps(v[t1:t2], ta[t1:t2])-2*simps(v[t3:t4],ta[t3:t4])+simps(v[t5:t6],ta[t5:t6]))
+    fvibm.append(fvibtest)
+    tidata[i] = np.sin((k*gR-2*np.pi*mdata[1, i])*T**2+fvibtest)
 
     fat = vfunc(ta[t1:t6]-ta[t1])
     #print(ta[t1:t6]-ta[t1])
@@ -150,7 +151,7 @@ for i in range(len(mdata[1])): # коррекция скорости чирпи�
     fvib = k*simps(intvib, ta[t1:t6])
     fvibn.append(fvib)
     t1, t2, t3, t4, t5, t6 = t1+dl, t2+dl, t3+dl, t4+dl, t5+dl, t6+dl
-    mdata[1,i] = mdata[1,i] - 2*np.pi*fvib/T**2 # 2pi?
+    mdata[1,i] = mdata[1,i] + fvib/T**2/(2*np.pi) # 2pi? if "+" sensivity improves
 
 #print(t1, t2, t3, t4, t5, t6)
 
@@ -166,6 +167,7 @@ print(dg*1e8*np.sqrt(TF*n))
 
 
 plt.scatter(mdata[1], tidata, color="orange")
-plt.plot(mdata[1], tidata, color="orange")
-plt.plot(mdata[1], A*np.sin(w*mdata[1]+ph) + s, color="green")
+plt.plot(mdata[1], tidata, color="orange", label = "noise")
+plt.plot(mdata[1], A*np.sin(w*mdata[1]+ph) + s, color="green", label ="fit")
+plt.legend()
 plt.show()
