@@ -4,11 +4,6 @@ import matplotlib.pyplot as plt
 import time
 import os
 
-# # sender.py
-# with open('commandRPacc.txt', 'w') as f:
-#     f.write('start\n')
-# print("Команда отправлена")
-
 
 IP = 'rp-f05e99.local'
 
