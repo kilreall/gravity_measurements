@@ -1,5 +1,7 @@
 from PyQt5.QtCore import QRunnable, QThreadPool, pyqtSlot, QObject, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel, QSpinBox, QDoubleSpinBox, QHBoxLayout, QFileDialog
+
+
 
 import sys
 import time
@@ -17,8 +19,10 @@ class Worker2Signals(QObject):
     data = pyqtSignal(np.ndarray)  # Добавляем сигнал с данными
 
 class Worker2(QRunnable):
-    def __init__(self):
+    def __init__(self, ip, dec):
         super().__init__()
+        self.ip = ip
+        self.dec = dec
         self.signals = Worker2Signals()
         self._is_running = True
 
@@ -26,8 +30,8 @@ class Worker2(QRunnable):
     def run(self):
         print("Continious mode was started")
 
-        IP = 'rp-f05e99.local'
-        dec = 512
+        IP = self.ip
+        dec = self.dec
         data_units = 'volts'
         data_format = 'ascii'
         rp = scpi.scpi(IP)
@@ -70,8 +74,11 @@ class WorkerSignals(QObject):
     data = pyqtSignal(np.ndarray)  # Добавляем сигнал с данными
 
 class Worker(QRunnable):
-    def __init__(self):
+    def __init__(self, ip, dec, tl):
         super().__init__()
+        self.ip = ip
+        self.dec = dec
+        self. tl = tl
         self.signals = WorkerSignals()
         self._is_running = True
 
@@ -79,14 +86,14 @@ class Worker(QRunnable):
     def run(self):
         global name
         print("Поток запущен")
-        IP = 'rp-f05e99.local'
-        dec = 512
-        trig_lvl = 0.1
+        IP = self.ip
+        dec = self.dec
+        trig_lvl = self.tl
         data_units = 'volts'
         data_format = 'ascii'
         acq_trig = 'CH1_PE'
         
-        i = 1
+        i = 0
 
         while self._is_running:
 
@@ -125,20 +132,17 @@ class Worker(QRunnable):
             if last_two == '01':
                 i = 0
                 name += 1
-                with open('file.txt', 'a', encoding='utf-8') as f:
+                with open('stat.txt', 'a', encoding='utf-8') as f:
                     f.write('1')  # добавляем символ '1' в конец файла
 
-            np.savetxt('%d-%d.csv' % (name, i) , buff, delimiter=',')
+            np.savetxt('%d/%d.csv' % (name, i) , buff, delimiter=',')
             i += 1
 
             self.signals.data.emit(buff)  # Отправляем данные в основной поток
 
-            with open('start.txt', 'w', encoding='utf-8') as file:
-                file.write('0')
-
         time.sleep(0)  # чтобы не грузить CPU
 
-        print("Поток завершён")
+        print("Flow was finished")
         self.signals.finished.emit()
 
     def stop(self):
@@ -149,50 +153,105 @@ class Worker(QRunnable):
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.initUI()
-        self.ip = 'rp-f05e99.local'
+        self.ip = '192.168.1.100'
         self.threadpool = QThreadPool()
         self.worker = None
         self.worker2 = None
+        self.initUI()
 
     def initUI(self):
+
+        # IP window
+        self.ip_label = QLabel("Enter IP:")
+        self.ip_input = QLineEdit(self)
+        self.ip_input.setFixedSize(110, 25) 
+        self.ip_input.setText(self.ip)
+        self.ip_input.setPlaceholderText("For example, 192.168.1.100")
+        self.ip_input.textChanged.connect(self.on_ip_changed)
+
+        # decimation window
+        self.int_label = QLabel("Enter dec:")
+        self.int_input = QSpinBox()
+        self.int_input.setFixedSize(60, 25)
+        self.int_input.setRange(1, 10000)
+        self.int_input.setValue(1024) 
+
+        # trig_lvl window
+        self.trig_label = QLabel("Enter trig_lvl:")
+        self.trig_input = QDoubleSpinBox()
+        self.trig_input.setFixedSize(60, 25)
+        self.trig_input.setRange(0, 10)
+        self.trig_input.setValue(0.1) 
+
+
+        # Main window
         self.setGeometry(300, 300, 900, 600)
         self.setWindowTitle('Accelerometer controller')
 
         self.start_button = QPushButton('Trigger mode', self)
+        self.start_button.setFixedSize(100, 35)
         self.start_button.clicked.connect(self.start_worker)
 
         self.start_worker2_button = QPushButton('Continious mode', self)
+        self.start_worker2_button.setFixedSize(100, 35)
         self.start_worker2_button.clicked.connect(self.start_worker2)
 
         self.stop_workers_button = QPushButton('Stop', self)
+        self.stop_workers_button.setFixedSize(100, 35)
         self.stop_workers_button.clicked.connect(self.stop_workers)
 
         # Добавляем FigureCanvas для matplotlib графика
         self.figure, self.ax = plt.subplots()
         self.canvas = FigureCanvas(self.figure)
 
-        # Располагаем кнопки и график на окне
-        layout = QVBoxLayout()
-        layout.addWidget(self.canvas)
-        layout.addWidget(self.start_button)
-        layout.addWidget(self.start_worker2_button)
-        layout.addWidget(self.stop_workers_button)
+        # Создаём главный горизонтальный layout
+        main_layout = QHBoxLayout()
 
-        self.setLayout(layout)
+        # Левая вертикальная колонка с кнопками и полями ввода
+        left_layout = QVBoxLayout()
+        left_layout.addWidget(self.ip_label)
+        left_layout.addWidget(self.ip_input)
+        left_layout.addWidget(self.int_label)
+        left_layout.addWidget(self.int_input)
+        left_layout.addWidget(self.start_worker2_button)
+        left_layout.addWidget(self.start_button)
+        left_layout.addWidget(self.trig_label)
+        left_layout.addWidget(self.trig_input)
+        left_layout.addWidget(self.stop_workers_button)
+
+        # Правая колонка с рисунком
+        right_layout = QVBoxLayout()
+        right_layout.addWidget(self.canvas)
+
+        # Добавляем левую и правую части в главный горизонтальный layout
+        main_layout.addLayout(left_layout)
+        main_layout.addLayout(right_layout)
+
+        # Устанавливаем главный layout на окно или виджет
+        self.setLayout(main_layout)
+
+
+    def on_ip_changed(self, text):
+        self.ip = text
+        print("IP changed on:", self.ip)
 
     def start_worker(self):
         if self.worker is None:
-            self.worker = Worker()
+            ip = self.ip_input.text()
+            dec = self.int_input.value()
+            tl = self.trig_lvl.value()
+            self.worker = Worker(ip=ip, dec=dec, tl = tl)
             self.worker.signals.finished.connect(self.worker_finished)
             self.worker.signals.data.connect(self.update_plot)  # Подписываемся на данные
             self.threadpool.start(self.worker)
         else:
-            print("Поток уже запущен")
+            print("The flow have already started")
 
     def start_worker2(self):
         if self.worker2 is None:
-            self.worker2 = Worker2()
+            ip = self.ip_input.text()
+            dec = self.int_input.value()
+            self.worker2 = Worker2(ip=ip,dec=dec)
             self.worker2.signals.finished.connect(self.worker2_finished)
             self.worker2.signals.data.connect(self.update_plot)
             self.threadpool.start(self.worker2)
