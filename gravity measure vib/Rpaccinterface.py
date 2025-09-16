@@ -74,11 +74,13 @@ class WorkerSignals(QObject):
     data = pyqtSignal(np.ndarray)  # Добавляем сигнал с данными
 
 class Worker(QRunnable):
-    def __init__(self, ip, dec, tl):
+    def __init__(self, ip, dec, tl, path, ttime):
         super().__init__()
         self.ip = ip
+        self.ttime = ttime
         self.dec = dec
         self. tl = tl
+        self.path = path
         self.signals = WorkerSignals()
         self._is_running = True
 
@@ -86,9 +88,14 @@ class Worker(QRunnable):
     def run(self):
         global name
         print("Поток запущен")
+
         IP = self.ip
         dec = self.dec
+        ttime = self.ttime
+        ttime = ttime*1e-3
         trig_lvl = self.tl
+        path = self.path
+
         data_units = 'volts'
         data_format = 'ascii'
         acq_trig = 'CH1_PE'
@@ -135,7 +142,7 @@ class Worker(QRunnable):
                 with open('stat.txt', 'a', encoding='utf-8') as f:
                     f.write('1')  # добавляем символ '1' в конец файла
 
-            np.savetxt('%d/%d.csv' % (name, i) , buff, delimiter=',')
+            np.savetxt('%s/%d/%d.csv' % (path, name, i) , buff, delimiter=',')
             i += 1
 
             self.signals.data.emit(buff)  # Отправляем данные в основной поток
@@ -146,7 +153,7 @@ class Worker(QRunnable):
         self.signals.finished.emit()
 
     def stop(self):
-        print("Остановка потока")
+        print("Flow stop")
         self._is_running = False
 
 
@@ -161,6 +168,15 @@ class MainWindow(QWidget):
 
     def initUI(self):
 
+        # file path
+        self.path_label = QLabel("path to folder:")
+        self.path_input = QLineEdit()
+        self.path_input.setFixedSize(110, 25) 
+        self.browse_button = QPushButton("Browse...")
+        self.browse_button.setFixedSize(100, 35)
+        self.browse_button.clicked.connect(self.browse_folder)
+
+
         # IP window
         self.ip_label = QLabel("Enter IP:")
         self.ip_input = QLineEdit(self)
@@ -173,7 +189,7 @@ class MainWindow(QWidget):
         self.int_label = QLabel("Enter dec:")
         self.int_input = QSpinBox()
         self.int_input.setFixedSize(60, 25)
-        self.int_input.setRange(1, 10000)
+        self.int_input.setRange(0, 100000)
         self.int_input.setValue(1024) 
 
         # trig_lvl window
@@ -182,6 +198,14 @@ class MainWindow(QWidget):
         self.trig_input.setFixedSize(60, 25)
         self.trig_input.setRange(0, 10)
         self.trig_input.setValue(0.1) 
+
+        # time acq window
+        self.ttime_label = QLabel("Enter acq time: ms")
+        self.ttime_input = QDoubleSpinBox()
+        self.ttime_input.setFixedSize(60, 25)
+        self.ttime_input.setRange(0, 1000)
+        self.ttime_input.setDecimals(3) 
+        self.ttime_input.setValue(134.218) 
 
 
         # Main window
@@ -217,6 +241,11 @@ class MainWindow(QWidget):
         left_layout.addWidget(self.start_button)
         left_layout.addWidget(self.trig_label)
         left_layout.addWidget(self.trig_input)
+        left_layout.addWidget(self.ttime_label)
+        left_layout.addWidget(self.ttime_input)
+        left_layout.addWidget(self.path_label)
+        left_layout.addWidget(self.path_input)
+        left_layout.addWidget(self.browse_button)
         left_layout.addWidget(self.stop_workers_button)
 
         # Правая колонка с рисунком
@@ -230,17 +259,26 @@ class MainWindow(QWidget):
         # Устанавливаем главный layout на окно или виджет
         self.setLayout(main_layout)
 
+    def browse_folder(self):
+        # Открываем диалог выбора папки
+        folder = QFileDialog.getExistingDirectory(self, "Выберите папку", "")
+        if folder:
+            self.path_input.setText(folder)  # Записываем выбранный путь в QLineEdit
+
 
     def on_ip_changed(self, text):
         self.ip = text
         print("IP changed on:", self.ip)
 
     def start_worker(self):
+        self.stop_workers()
         if self.worker is None:
             ip = self.ip_input.text()
             dec = self.int_input.value()
+            ttime = self.ttime_input.value()
             tl = self.trig_lvl.value()
-            self.worker = Worker(ip=ip, dec=dec, tl = tl)
+            path = self.path_input.text()
+            self.worker = Worker(ip=ip, dec=dec, tl=tl, path=path, ttime=ttime)
             self.worker.signals.finished.connect(self.worker_finished)
             self.worker.signals.data.connect(self.update_plot)  # Подписываемся на данные
             self.threadpool.start(self.worker)
@@ -248,6 +286,7 @@ class MainWindow(QWidget):
             print("The flow have already started")
 
     def start_worker2(self):
+        self.stop_workers()
         if self.worker2 is None:
             ip = self.ip_input.text()
             dec = self.int_input.value()
