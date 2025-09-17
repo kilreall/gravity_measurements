@@ -123,7 +123,10 @@ class Worker(QRunnable):
         rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
         rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
 
+        # Activate split trigger mode
+        # rp.tx_txt('ACQ:SPLIT:TRig ON')
 
+        rp.tx_txt(f"ACQ:TRig:CH1 {acq_trig}")
 
         with open('%s/stat.txt' % path, 'a', encoding='utf-8') as f:
                     f.write('11')  # добавляем символ '11' в конец файла
@@ -133,8 +136,11 @@ class Worker(QRunnable):
         while self._is_running:
 
 
+            # Activate split trigger mode  # не работает
+#            rp.tx_txt('ACQ:SPLIT:TRig ON') 
+
             rp.tx_txt('ACQ:START')
-            rp.tx_txt(f"ACQ:TRig {acq_trig}")
+            #rp.tx_txt(f"ACQ:TRig:CH1 {acq_trig}")
 
             while self._is_running:
                 rp.tx_txt('ACQ:TRig:STAT?')
@@ -150,6 +156,7 @@ class Worker(QRunnable):
             rp.tx_txt('ACQ:SOUR1:DATA?')
             buff_string = rp.rx_txt()
             rp.tx_txt('ACQ:STOP')
+            #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
             buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
             buff = np.array(buff_string).astype(np.float64)
 
@@ -170,6 +177,7 @@ class Worker(QRunnable):
                     f.write('11')  # добавляем символ '11' в конец файла
 
             np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',')
+            print(i)
             i += 1
 
             self.signals.data.emit(buff)  # Отправляем данные в основной поток
@@ -189,6 +197,7 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.ip = 'rp-f05e99.local'
+        self.path = 'C:/Users/MakarovAO/Desktop/Adamov_Kirill/gravity_measurements/gravity measure vib/testdata'
         self.threadpool = QThreadPool()
         self.worker = None
         self.worker2 = None
@@ -200,6 +209,7 @@ class MainWindow(QWidget):
         self.path_label = QLabel("path to folder:")
         self.path_input = QLineEdit()
         self.path_input.setFixedSize(110, 25) 
+        self.path_input.setText(self.path)
         self.browse_button = QPushButton("Browse...")
         self.browse_button.setFixedSize(100, 35)
         self.browse_button.clicked.connect(self.browse_folder)
@@ -225,7 +235,7 @@ class MainWindow(QWidget):
         self.trig_input = QDoubleSpinBox()
         self.trig_input.setFixedSize(60, 25)
         self.trig_input.setRange(0, 10)
-        self.trig_input.setValue(0.01) 
+        self.trig_input.setValue(2.5) 
 
         # time acq window
         self.ttime_label = QLabel("Enter acq time: ms")
@@ -349,7 +359,7 @@ class MainWindow(QWidget):
         self.ax.plot(buff)
         self.ax.set_title("CH1 RP voltage")
         self.ax.set_xlabel("counts")
-        self.ax.set_ylabel("volts")
+        self.ax.set_ylabel("voltage")
         self.canvas.draw_idle()
 
 if __name__ == '__main__':
