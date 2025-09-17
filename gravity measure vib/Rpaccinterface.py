@@ -6,6 +6,7 @@ from datetime import datetime
 import sys
 import time
 import random
+import os
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -35,14 +36,17 @@ class Worker2(QRunnable):
         data_units = 'volts'
         data_format = 'ascii'
         rp = scpi.scpi(IP)
+
+        rp.tx_txt('ACQ:RST')
+
+        rp.tx_txt(f"ACQ:DEC:Factor {dec}")
+        rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
+        rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
+
         i = 0
         while self._is_running:
 
-            rp.tx_txt('ACQ:RST')
 
-            rp.tx_txt(f"ACQ:DEC:Factor {dec}")
-            rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
-            rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
 
             rp.tx_txt('ACQ:START')
             rp.tx_txt('ACQ:TRig NOW')
@@ -54,6 +58,7 @@ class Worker2(QRunnable):
 
             rp.tx_txt('ACQ:SOUR1:DATA?')
             buff_string = rp.rx_txt()
+            rp.tx_txt('ACQ:STOP')
             buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
             buff = np.array(buff_string).astype(np.float64)
 
@@ -62,6 +67,7 @@ class Worker2(QRunnable):
             i += 1
             time.sleep(0)
 
+        rp.tx_txt('ACQ:RST')
         print("continious mode was stopped")
         self.signals.finished.emit()
 
@@ -91,6 +97,7 @@ class Worker(QRunnable):
         name = name.strftime("%d%m%y%H%M%S")
         ran_pref = f"{random.randint(0, 99):02d}"
         name = ran_pref+name
+
         print("trigger mode was started")
 
         IP = self.ip
@@ -100,26 +107,31 @@ class Worker(QRunnable):
         trig_lvl = self.tl
         path = self.path
 
-        with open('%s/stat.txt' % path, 'a', encoding='utf-8') as f:
-                    f.write('11')  # добавляем символ '11' в конец файла
+        if not os.path.exists("%s/%s" % (path, name)):
+            os.mkdir("%s/%s" % (path, name))
 
         data_units = 'volts'
         data_format = 'ascii'
-        acq_trig = 'CH1_PE'
+        acq_trig = 'CH2_PE'
+
+        rp = scpi.scpi(IP)
+
+        rp.tx_txt('ACQ:RST')
+
+        rp.tx_txt(f"ACQ:DEC:Factor {dec}")
+        rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
+        rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
+        rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
+
+
+
+        with open('%s/stat.txt' % path, 'a', encoding='utf-8') as f:
+                    f.write('11')  # добавляем символ '11' в конец файла
         
         i = 0
 
         while self._is_running:
 
-            rp = scpi.scpi(IP)
-
-            rp.tx_txt('ACQ:RST')
-
-            rp.tx_txt(f"ACQ:DEC:Factor {dec}")
-            rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
-            rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
-
-            rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
 
             rp.tx_txt('ACQ:START')
             rp.tx_txt(f"ACQ:TRig {acq_trig}")
@@ -130,16 +142,18 @@ class Worker(QRunnable):
                     break  
                 time.sleep(0)
             
-            if not self._is_running:
+            if self._is_running == False:
+                rp.tx_txt('ACQ:STOP')
                 rp.tx_txt('ACQ:RST')
                 break
 
             rp.tx_txt('ACQ:SOUR1:DATA?')
             buff_string = rp.rx_txt()
+            rp.tx_txt('ACQ:STOP')
             buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
             buff = np.array(buff_string).astype(np.float64)
 
-            with open('stat.txt', 'r', encoding='utf-8') as file:
+            with open('%s/stat.txt' %path, 'r', encoding='utf-8') as file:
                 content = file.read().strip()
                 last_two = content[-2:] if len(content) >= 2 else content
                 
@@ -149,6 +163,9 @@ class Worker(QRunnable):
                 name = name.strftime("%d%m%y%H%M%S")
                 ran_pref = f"{random.randint(0, 99):02d}"
                 name = ran_pref+name
+                if not os.path.exists("%s/%s" % (path, name)):
+                    os.mkdir("%s/%s" % (path, name))
+
                 with open('%s/stat.txt' % path, 'a', encoding='utf-8') as f:
                     f.write('11')  # добавляем символ '11' в конец файла
 
@@ -208,7 +225,7 @@ class MainWindow(QWidget):
         self.trig_input = QDoubleSpinBox()
         self.trig_input.setFixedSize(60, 25)
         self.trig_input.setRange(0, 10)
-        self.trig_input.setValue(0.1) 
+        self.trig_input.setValue(0.01) 
 
         # time acq window
         self.ttime_label = QLabel("Enter acq time: ms")
