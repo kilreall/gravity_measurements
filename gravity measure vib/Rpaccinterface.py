@@ -2,16 +2,16 @@ from PyQt5.QtCore import QRunnable, QThreadPool, pyqtSlot, QObject, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QLineEdit, QLabel, QSpinBox, QDoubleSpinBox, QHBoxLayout, QFileDialog
 
 
-
+from datetime import datetime
 import sys
 import time
+import random
 
 import matplotlib.pyplot as plt
 import numpy as np
 import redpitaya_scpi as scpi
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
-name = 1
 
 # непрерывный режим
 class Worker2Signals(QObject):
@@ -86,8 +86,12 @@ class Worker(QRunnable):
 
     @pyqtSlot()
     def run(self):
-        global name
-        print("Поток запущен")
+
+        name = datetime.now()
+        name = name.strftime("%d%m%y%H%M%S")
+        ran_pref = f"{random.randint(0, 99):02d}"
+        name = ran_pref+name
+        print("trigger mode was started")
 
         IP = self.ip
         dec = self.dec
@@ -95,6 +99,9 @@ class Worker(QRunnable):
         ttime = ttime*1e-3
         trig_lvl = self.tl
         path = self.path
+
+        with open('%s/stat.txt' % path, 'a', encoding='utf-8') as f:
+                    f.write('11')  # добавляем символ '11' в конец файла
 
         data_units = 'volts'
         data_format = 'ascii'
@@ -136,19 +143,23 @@ class Worker(QRunnable):
                 content = file.read().strip()
                 last_two = content[-2:] if len(content) >= 2 else content
                 
-            if last_two == '01':
+            if last_two == '01' or last_two == '00':
                 i = 0
-                name += 1
-                with open('stat.txt', 'a', encoding='utf-8') as f:
-                    f.write('1')  # добавляем символ '1' в конец файла
+                name = datetime.now()
+                name = name.strftime("%d%m%y%H%M%S")
+                ran_pref = f"{random.randint(0, 99):02d}"
+                name = ran_pref+name
+                with open('%s/stat.txt' % path, 'a', encoding='utf-8') as f:
+                    f.write('11')  # добавляем символ '11' в конец файла
 
-            np.savetxt('%s/%d/%d.csv' % (path, name, i) , buff, delimiter=',')
+            np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',')
             i += 1
 
             self.signals.data.emit(buff)  # Отправляем данные в основной поток
 
-        time.sleep(0)  # чтобы не грузить CPU
+            time.sleep(0)  # чтобы не грузить CPU
 
+        rp.tx_txt('ACQ:RST')
         print("Flow was finished")
         self.signals.finished.emit()
 
@@ -160,7 +171,7 @@ class Worker(QRunnable):
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.ip = '192.168.1.100'
+        self.ip = 'rp-f05e99.local'
         self.threadpool = QThreadPool()
         self.worker = None
         self.worker2 = None
@@ -261,7 +272,7 @@ class MainWindow(QWidget):
 
     def browse_folder(self):
         # Открываем диалог выбора папки
-        folder = QFileDialog.getExistingDirectory(self, "Выберите папку", "")
+        folder = QFileDialog.getExistingDirectory(self, "Choose directory", "")
         if folder:
             self.path_input.setText(folder)  # Записываем выбранный путь в QLineEdit
 
@@ -276,7 +287,7 @@ class MainWindow(QWidget):
             ip = self.ip_input.text()
             dec = self.int_input.value()
             ttime = self.ttime_input.value()
-            tl = self.trig_lvl.value()
+            tl = self.trig_input.value()
             path = self.path_input.text()
             self.worker = Worker(ip=ip, dec=dec, tl=tl, path=path, ttime=ttime)
             self.worker.signals.finished.connect(self.worker_finished)
@@ -295,24 +306,24 @@ class MainWindow(QWidget):
             self.worker2.signals.data.connect(self.update_plot)
             self.threadpool.start(self.worker2)
         else:
-            print("Второй поток уже запущен")
+            print("Continious mode has already been started ")
 
     def stop_workers(self):
         if self.worker is not None:
-            print("Останавливаем worker")
+            print("Stopping trigger mode")
             self.worker.stop()
         if self.worker2 is not None:
-            print("Останавливаем worker2")
+            print("Stopping continious mode")
             self.worker2.stop()
         if self.worker is None and self.worker2 is None:
-            print("Оба потока не запущены")
+            print("Both modes disabled")
 
     def worker_finished(self):
-        print("Worker завершил выполнение")
+        print("Trigger finished execution")
         self.worker = None
 
     def worker2_finished(self):
-        print("Worker2 завершил выполнение")
+        print("Continious acquistion finished execution")
         self.worker2 = None
 
     @pyqtSlot(np.ndarray)
