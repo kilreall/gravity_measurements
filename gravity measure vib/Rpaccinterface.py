@@ -13,6 +13,14 @@ import numpy as np
 import redpitaya_scpi as scpi
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+def read_single_char(file_path):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        return f.read(1)
+
+def write_char(file_path, char):
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write(char)
+
 
 # непрерывный режим
 class Worker2Signals(QObject):
@@ -93,11 +101,6 @@ class Worker(QRunnable):
     @pyqtSlot()
     def run(self):
 
-        name = datetime.now()
-        name = name.strftime("%d%m%y%H%M%S")
-        ran_pref = f"{random.randint(0, 99):02d}"
-        name = ran_pref+name
-
         print("trigger mode was started")
 
         IP = self.ip
@@ -106,9 +109,6 @@ class Worker(QRunnable):
         ttime = ttime*1e-3
         trig_lvl = self.tl
         path = self.path
-
-        if not os.path.exists("%s/%s" % (path, name)):
-            os.mkdir("%s/%s" % (path, name))
 
         data_units = 'volts'
         data_format = 'ascii'
@@ -128,43 +128,11 @@ class Worker(QRunnable):
 
         rp.tx_txt(f"ACQ:TRig:CH1 {acq_trig}")
 
-        with open('%s/stat.txt' % path, 'a', encoding='utf-8') as f:
-                    f.write('11')  # добавляем символ '11' в конец файла
+        write_char("%s/stat.txt" % path, '0')
         
-        i = 0
-
         while self._is_running:
 
-
-            # Activate split trigger mode  # не работает
-#            rp.tx_txt('ACQ:SPLIT:TRig ON') 
-
-            rp.tx_txt('ACQ:START')
-            #rp.tx_txt(f"ACQ:TRig:CH1 {acq_trig}")
-
-            while self._is_running:
-                rp.tx_txt('ACQ:TRig:STAT?')
-                if rp.rx_txt() == 'TD':
-                    break  
-                time.sleep(0)
-            
-            if self._is_running == False:
-                rp.tx_txt('ACQ:STOP')
-                rp.tx_txt('ACQ:RST')
-                break
-
-            rp.tx_txt('ACQ:SOUR1:DATA?')
-            buff_string = rp.rx_txt()
-            rp.tx_txt('ACQ:STOP')
-            #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
-            buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
-            buff = np.array(buff_string).astype(np.float64)
-
-            with open('%s/stat.txt' %path, 'r', encoding='utf-8') as file:
-                content = file.read().strip()
-                last_two = content[-2:] if len(content) >= 2 else content
-                
-            if last_two == '01' or last_two == '00':
+            if read_single_char("%s/stat.txt" % path) == '1':
                 i = 0
                 name = datetime.now()
                 name = name.strftime("%d%m%y%H%M%S")
@@ -173,16 +141,42 @@ class Worker(QRunnable):
                 if not os.path.exists("%s/%s" % (path, name)):
                     os.mkdir("%s/%s" % (path, name))
 
-                with open('%s/stat.txt' % path, 'a', encoding='utf-8') as f:
-                    f.write('11')  # добавляем символ '11' в конец файла
+            while self._is_running and read_single_char("%s/stat.txt" % path) == '1':
 
-            np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',')
-            print(i)
-            i += 1
+                # Activate split trigger mode  # не работает
+    #            rp.tx_txt('ACQ:SPLIT:TRig ON') 
 
-            self.signals.data.emit(buff)  # Отправляем данные в основной поток
+                rp.tx_txt('ACQ:START')
+                #rp.tx_txt(f"ACQ:TRig:CH1 {acq_trig}")
 
-            time.sleep(0)  # чтобы не грузить CPU
+                check = read_single_char("%s/stat.txt" % path)
+                while self._is_running and check == '1':
+                    rp.tx_txt('ACQ:TRig:STAT?')
+                    if rp.rx_txt() == 'TD':
+                        break  
+                    check = read_single_char("%s/stat.txt" % path)
+                    time.sleep(0)
+                
+                time.sleep(0)
+                if not self._is_running or check == '0':
+                    rp.tx_txt('ACQ:STOP')
+                    break
+
+                rp.tx_txt('ACQ:SOUR1:DATA?')
+                buff_string = rp.rx_txt()
+                rp.tx_txt('ACQ:STOP')
+                #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
+                buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
+                buff = np.array(buff_string).astype(np.float64)
+                np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',')
+                print(i)
+                i += 1
+
+                self.signals.data.emit(buff)  # Отправляем данные в основной поток
+
+                time.sleep(0)  # чтобы не грузить CPU
+
+            time.sleep(0)
 
         rp.tx_txt('ACQ:RST')
         print("Flow was finished")
@@ -321,7 +315,7 @@ class MainWindow(QWidget):
             self.worker.signals.data.connect(self.update_plot)  # Подписываемся на данные
             self.threadpool.start(self.worker)
         else:
-            print("The flow have already started")
+            print("The flow have been already started")
 
     def start_worker2(self):
         self.stop_workers()
