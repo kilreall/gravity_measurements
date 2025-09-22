@@ -50,6 +50,8 @@ class Worker2(QRunnable):
         rp.tx_txt(f"ACQ:DEC:Factor {dec}")
         rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
         rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
+        rp.tx_txt('ACQ:SOUR1:GAIN HV')
+        rp.tx_txt('ACQ:SOUR2:GAIN HV')
 
         i = 0
         while self._is_running:
@@ -110,7 +112,7 @@ class Worker(QRunnable):
         trig_lvl = self.tl
         path = self.path
 
-        data_units = 'volts'
+        data_units = 'RAW'
         data_format = 'ascii'
         acq_trig = 'CH2_PE'
 
@@ -122,6 +124,8 @@ class Worker(QRunnable):
         rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
         rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
         rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
+        rp.tx_txt('ACQ:SOUR1:GAIN HV')
+        rp.tx_txt('ACQ:SOUR2:GAIN HV')
 
         # Activate split trigger mode
         # rp.tx_txt('ACQ:SPLIT:TRig ON')
@@ -131,8 +135,9 @@ class Worker(QRunnable):
         write_char("%s/stat.txt" % path, '0')
         
         while self._is_running:
-
-            if read_single_char("%s/stat.txt" % path) == '1':
+            
+            check_stat = read_single_char("%s/stat.txt" % path)
+            if check_stat == '1':
                 i = 0
                 name = datetime.now()
                 name = name.strftime("%d%m%y%H%M%S")
@@ -140,9 +145,15 @@ class Worker(QRunnable):
                 name = ran_pref+name
                 if not os.path.exists("%s/%s" % (path, name)):
                     os.mkdir("%s/%s" % (path, name))
+                start_time = time.time()
 
-            while self._is_running and read_single_char("%s/stat.txt" % path) == '1':
+            i = 0
+            while self._is_running and check_stat == '1':
 
+                end_time = time.time()
+                print((end_time-start_time)*1e3, "acq time")
+                start_time = time.time()
+                
                 # Activate split trigger mode  # не работает
     #            rp.tx_txt('ACQ:SPLIT:TRig ON') 
 
@@ -155,9 +166,9 @@ class Worker(QRunnable):
                     if rp.rx_txt() == 'TD':
                         break  
                     check = read_single_char("%s/stat.txt" % path)
-                    time.sleep(0)
+                    #time.sleep(0)
                 
-                time.sleep(0)
+                #time.sleep(0)
                 if not self._is_running or check == '0':
                     rp.tx_txt('ACQ:STOP')
                     break
@@ -168,15 +179,17 @@ class Worker(QRunnable):
                 #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
                 buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
                 buff = np.array(buff_string).astype(np.float64)
+                #buff[1] = buff[1]
                 np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',')
-                print(i)
+                #print(i)
                 i += 1
 
                 self.signals.data.emit(buff)  # Отправляем данные в основной поток
 
-                time.sleep(0)  # чтобы не грузить CPU
+                check_stat = read_single_char("%s/stat.txt" % path)
+                #time.sleep(0)  # чтобы не грузить CPU
 
-            time.sleep(0)
+            #time.sleep(0)
 
         rp.tx_txt('ACQ:RST')
         print("Flow was finished")
@@ -222,14 +235,14 @@ class MainWindow(QWidget):
         self.int_input = QSpinBox()
         self.int_input.setFixedSize(60, 25)
         self.int_input.setRange(0, 100000)
-        self.int_input.setValue(1024) 
+        self.int_input.setValue(512) 
 
         # trig_lvl window
         self.trig_label = QLabel("Enter trig_lvl:")
         self.trig_input = QDoubleSpinBox()
         self.trig_input.setFixedSize(60, 25)
         self.trig_input.setRange(0, 10)
-        self.trig_input.setValue(2.5) 
+        self.trig_input.setValue(1.25) 
 
         # time acq window
         self.ttime_label = QLabel("Enter acq time: ms")
