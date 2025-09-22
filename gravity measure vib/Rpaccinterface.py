@@ -113,7 +113,7 @@ class Worker(QRunnable):
         path = self.path
 
         data_units = 'RAW'
-        data_format = 'ascii'
+        data_format = 'BIN'
         acq_trig = 'CH2_PE'
 
         rp = scpi.scpi(IP)
@@ -174,11 +174,14 @@ class Worker(QRunnable):
                     break
 
                 rp.tx_txt('ACQ:SOUR1:DATA?')
-                buff_string = rp.rx_txt()
+                buff = rp.rx_arb()
                 rp.tx_txt('ACQ:STOP')
                 #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
-                buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
-                buff = np.array(buff_string).astype(np.float64)
+                #buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
+                #buff = np.array(buff_string).astype(np.float64)
+                buff = np.frombuffer(buff, dtype='>i2')
+                buff = buff.astype(np.float16) / 8191.0
+
                 #buff[1] = buff[1]
                 np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',')
                 #print(i)
