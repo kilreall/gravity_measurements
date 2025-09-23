@@ -118,19 +118,19 @@ class Worker(QRunnable):
 
         rp = scpi.scpi(IP)
 
-        rp.tx_txt('ACQ:RST')
+        # rp.tx_txt('ACQ:RST')
 
-        rp.tx_txt(f"ACQ:DEC:Factor {dec}")
-        rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
-        rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
-        rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
-        rp.tx_txt('ACQ:SOUR1:GAIN HV')
-        rp.tx_txt('ACQ:SOUR2:GAIN HV')
+        # rp.tx_txt(f"ACQ:DEC:Factor {dec}")
+        # rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
+        # rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
+        # rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
+        #rp.tx_txt('ACQ:TRig:DLY 0')
+        # rp.tx_txt('ACQ:SOUR1:GAIN HV')
+        # rp.tx_txt('ACQ:SOUR2:GAIN HV')
 
-        # Activate split trigger mode
-        # rp.tx_txt('ACQ:SPLIT:TRig ON')
 
-        rp.tx_txt(f"ACQ:TRig:CH1 {acq_trig}")
+
+        #rp.tx_txt(f"ACQ:TRig {acq_trig}")
 
         write_char("%s/stat.txt" % path, '0')
         
@@ -149,27 +149,35 @@ class Worker(QRunnable):
 
             i = 0
             while self._is_running and check_stat == '1':
-
-                end_time = time.time()
-                print((end_time-start_time)*1e3, "acq time")
-                start_time = time.time()
                 
-                # Activate split trigger mode  # не работает
-    #            rp.tx_txt('ACQ:SPLIT:TRig ON') 
+                rp.tx_txt('ACQ:RST')
+
+                rp.tx_txt(f"ACQ:DEC:Factor {dec}")
+                rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
+                rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
+                rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
+                rp.tx_txt('ACQ:TRig:DLY 0')
+                rp.tx_txt('ACQ:SOUR1:GAIN HV')
+                rp.tx_txt('ACQ:SOUR2:GAIN HV')
+
 
                 rp.tx_txt('ACQ:START')
-                #rp.tx_txt(f"ACQ:TRig:CH1 {acq_trig}")
+                rp.tx_txt(f"ACQ:TRig {acq_trig}")
 
-                check = read_single_char("%s/stat.txt" % path)
-                while self._is_running and check == '1':
+                check_stat = read_single_char("%s/stat.txt" % path)
+                while self._is_running and check_stat == '1':
                     rp.tx_txt('ACQ:TRig:STAT?')
                     if rp.rx_txt() == 'TD':
                         break  
-                    check = read_single_char("%s/stat.txt" % path)
+                    check_stat = read_single_char("%s/stat.txt" % path)
                     #time.sleep(0)
                 
+                end_time = time.time()
+                print((end_time-start_time)*1e3, "acq time")
+                start_time = time.time()
+
                 #time.sleep(0)
-                if not self._is_running or check == '0':
+                if not self._is_running or check_stat == '0':
                     rp.tx_txt('ACQ:STOP')
                     break
 
@@ -180,7 +188,7 @@ class Worker(QRunnable):
                 #buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
                 #buff = np.array(buff_string).astype(np.float64)
                 buff = np.frombuffer(buff, dtype='>i2')
-                buff = buff.astype(np.float16) / 8191.0
+                buff = (buff.astype(np.float16)+168)  / 8191.0*20
 
                 #buff[1] = buff[1]
                 np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',')
@@ -238,7 +246,7 @@ class MainWindow(QWidget):
         self.int_input = QSpinBox()
         self.int_input.setFixedSize(60, 25)
         self.int_input.setRange(0, 100000)
-        self.int_input.setValue(512) 
+        self.int_input.setValue(256) 
 
         # trig_lvl window
         self.trig_label = QLabel("Enter trig_lvl:")
