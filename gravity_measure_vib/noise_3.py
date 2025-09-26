@@ -6,7 +6,7 @@ def sinss(x, A1, A2, A3, w1, w2, w3, ph1, ph2, ph3, ss):
     return A1*np.sin(w1*x+ph1) + A2*np.sin(w2*x+ph2) + A3*np.sin(w3*x+ph3) + ss
 
 
-filepath = "gravity measure vib\data\llt1.csv.csv"
+filepath = "gravity_measure_vib\data\llt1.csv"
 data = np.genfromtxt(filepath, delimiter=',', skip_header=1) 
 t = data[:,0]
 a = data[:,1]/150
@@ -36,9 +36,9 @@ v_t = np.fft.ifft(fft_v).real  # Отбрасываем мнимую часть 
 
 
 #print(t)
-plt.plot(t, a/3)
-plt.plot(t, v_t, 'r', label='Скорость v(t)')
-#plt.plot(freqs[:N//2], np.abs(fft_a[:N//2]), label='Спектр |A(ω)|')
+#plt.plot(t, a/3)
+#plt.plot(t, v_t, 'r', label='Скорость v(t)')
+plt.plot(freqs[:N//2], np.abs(fft_a[:N//2]), label='Спектр |A(ω)|')
 
 # initial_guess = [1.54, 0.947, 0.9842, 2*np.pi, 42.5*np.pi,  72.6*np.pi, 0, 0, 0, 0] 
 # par, cov = curve_fit(sinss, t, a, p0=initial_guess)

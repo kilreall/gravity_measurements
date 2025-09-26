@@ -147,7 +147,7 @@ class Worker(QRunnable):
                     os.mkdir("%s/%s" % (path, name))
                 start_time = time.time()
 
-            i = 0
+
             while self._is_running and check_stat == '1':
                 
                 rp.tx_txt('ACQ:RST')
