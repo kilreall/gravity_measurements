@@ -6,7 +6,7 @@ def sinss(x, A1, A2, A3, w1, w2, w3, ph1, ph2, ph3, ss):
     return A1*np.sin(w1*x+ph1) + A2*np.sin(w2*x+ph2) + A3*np.sin(w3*x+ph3) + ss
 
 
-filepath = "data\llt1.csv"
+filepath = "gravity measure vib\data\llt1.csv.csv"
 data = np.genfromtxt(filepath, delimiter=',', skip_header=1) 
 t = data[:,0]
 a = data[:,1]/150
