@@ -13,9 +13,11 @@ import numpy as np
 import redpitaya_scpi as scpi
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
+
 def read_single_char(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         return f.read(1)
+
 
 def write_char(file_path, char):
     with open(file_path, 'w', encoding='utf-8') as f:
@@ -90,15 +92,18 @@ class WorkerSignals(QObject):
     data = pyqtSignal(np.ndarray)  # Добавляем сигнал с данными
 
 class Worker(QRunnable):
-    def __init__(self, ip, dec, tl, path, ttime):
+    def __init__(self, ip, dec, tl, path, ttime, delay):
         super().__init__()
         self.ip = ip
         self.ttime = ttime
+        self.delay = delay
         self.dec = dec
         self. tl = tl
         self.path = path
         self.signals = WorkerSignals()
         self._is_running = True
+
+        # self.fname = ''
 
     @pyqtSlot()
     def run(self):
@@ -111,6 +116,7 @@ class Worker(QRunnable):
         ttime = ttime*1e-3
         trig_lvl = self.tl
         path = self.path
+        delay = self.delay
 
         data_units = 'RAW'
         data_format = 'BIN'
@@ -132,11 +138,11 @@ class Worker(QRunnable):
 
         #rp.tx_txt(f"ACQ:TRig {acq_trig}")
 
-        write_char("%s/stat.txt" % path, '0')
+        write_char("%s/scan_state.txt" % path, '0')
         
         while self._is_running:
             
-            check_stat = read_single_char("%s/stat.txt" % path)
+            check_stat = read_single_char("%s/scan_state.txt" % path)
             if check_stat == '1':
                 i = 0
                 name = datetime.now()
@@ -145,7 +151,7 @@ class Worker(QRunnable):
                 name = ran_pref+name
                 if not os.path.exists("%s/%s" % (path, name)):
                     os.mkdir("%s/%s" % (path, name))
-                start_time = time.time()
+                # start_time = time.time()
 
 
             while self._is_running and check_stat == '1':
@@ -156,7 +162,7 @@ class Worker(QRunnable):
                 rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
                 rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
                 rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
-                rp.tx_txt('ACQ:TRig:DLY 0')
+                rp.tx_txt(f'ACQ:TRig:DLY {delay}')
                 rp.tx_txt('ACQ:SOUR1:GAIN HV')
                 rp.tx_txt('ACQ:SOUR2:GAIN HV')
 
@@ -164,17 +170,17 @@ class Worker(QRunnable):
                 rp.tx_txt('ACQ:START')
                 rp.tx_txt(f"ACQ:TRig {acq_trig}")
 
-                check_stat = read_single_char("%s/stat.txt" % path)
+                check_stat = read_single_char("%s/scan_state.txt" % path)
                 while self._is_running and check_stat == '1':
                     rp.tx_txt('ACQ:TRig:STAT?')
                     if rp.rx_txt() == 'TD':
                         break  
-                    check_stat = read_single_char("%s/stat.txt" % path)
+                    check_stat = read_single_char("%s/scan_state.txt" % path)
                     #time.sleep(0)
                 
-                end_time = time.time()
-                print((end_time-start_time)*1e3, "acq time")
-                start_time = time.time()
+                #end_time = time.time()
+                #print((end_time-start_time)*1e3, "acq time")
+                #start_time = time.time()
 
                 #time.sleep(0)
                 if not self._is_running or check_stat == '0':
@@ -197,7 +203,7 @@ class Worker(QRunnable):
 
                 self.signals.data.emit(buff)  # Отправляем данные в основной поток
 
-                check_stat = read_single_char("%s/stat.txt" % path)
+                check_stat = read_single_char("%s/scan_state.txt" % path)
                 #time.sleep(0)  # чтобы не грузить CPU
 
             #time.sleep(0)
@@ -214,8 +220,10 @@ class Worker(QRunnable):
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.ip = 'rp-f05e99.local'
-        self.path = 'C:/Users/MakarovAO/Desktop/Adamov_Kirill/gravity_measurements/gravity measure vib/testdata'
+        # self.ip = 'rp-f05e99.local'
+        self.ip = '192.168.54.171'
+        # self.path = 'C:/Users/MakarovAO/Desktop/Adamov_Kirill/gravity_measurements/gravity measure vib/testdata'
+        self.path = r'C:\Users\KapustaDN\PycharmProjects\quantum_sensors_lab\gravimeter gui'
         self.threadpool = QThreadPool()
         self.worker = None
         self.worker2 = None
@@ -253,7 +261,14 @@ class MainWindow(QWidget):
         self.trig_input = QDoubleSpinBox()
         self.trig_input.setFixedSize(60, 25)
         self.trig_input.setRange(0, 10)
-        self.trig_input.setValue(1.25) 
+        self.trig_input.setValue(1.25)
+
+        #trig_delay window
+        self.delay_label = QLabel("Enter trig_delay:")
+        self.delay_input = QSpinBox()
+        self.delay_input.setFixedSize(60, 25)
+        self.delay_input.setRange(-16000, 16000)
+        self.delay_input.setValue(8192)
 
         # time acq window
         self.ttime_label = QLabel("Enter acq time: ms")
@@ -297,6 +312,8 @@ class MainWindow(QWidget):
         left_layout.addWidget(self.start_button)
         left_layout.addWidget(self.trig_label)
         left_layout.addWidget(self.trig_input)
+        left_layout.addWidget(self.delay_label)
+        left_layout.addWidget(self.delay_input)
         left_layout.addWidget(self.ttime_label)
         left_layout.addWidget(self.ttime_input)
         left_layout.addWidget(self.path_label)
@@ -334,7 +351,8 @@ class MainWindow(QWidget):
             ttime = self.ttime_input.value()
             tl = self.trig_input.value()
             path = self.path_input.text()
-            self.worker = Worker(ip=ip, dec=dec, tl=tl, path=path, ttime=ttime)
+            delay = self.delay_input.value()
+            self.worker = Worker(ip=ip, dec=dec, tl=tl, path=path, ttime=ttime, delay=delay)
             self.worker.signals.finished.connect(self.worker_finished)
             self.worker.signals.data.connect(self.update_plot)  # Подписываемся на данные
             self.threadpool.start(self.worker)
