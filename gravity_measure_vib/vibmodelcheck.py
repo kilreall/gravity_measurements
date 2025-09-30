@@ -88,6 +88,7 @@ mdata = np.linspace(mdata[0], mdata[-1], n) # тестовое для модел
 mdata = np.vstack((mdata, (mdata-start_freq)/dt)) # скорости чирпирования
 tidata = np.sin(T*T*(k*gR-2*np.pi*mdata[1]))
 
+# обработка данных по шуму
 filepath = "gravity measure vib\data\kkt11.csv" # now concentrate on kkt11 and kt7
 adata = np.genfromtxt(filepath, delimiter=',', skip_header=1) 
 ta = adata[:,0]
