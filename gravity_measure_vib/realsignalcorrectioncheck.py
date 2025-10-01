@@ -7,40 +7,53 @@ import matplotlib
 import os
 import pandas as pd
 from scipy.optimize import minimize_scalar
-from scipy.integrate import simps
+from scipy.integrate import simpson
+from joblib import Parallel, delayed
+
 
 def sins(x, A, w, ph, s):
     return A*np.sin(w*x+ph) + s
 
 def csv_np(folder_path):
-    # Получаем список файлов и сортируем по номеру
-    file_list = sorted([f for f in os.listdir(folder_path) if f.endswith('.csv')],
-                    key=lambda x: int(x.split('.')[0]))
+    file_list = [
+        f for f in os.listdir(folder_path)
+        if f.endswith('.csv') and f.split('.')[0].isdigit()
+    ]
+    file_list = sorted(file_list, key=lambda x: int(x.split('.')[0]))
 
-    # Считываем первый столбец из каждого CSV
     columns = []
     for file_name in file_list:
         file_path = os.path.join(folder_path, file_name)
-        df = pd.read_csv(file_path, header=None)  # Без заголовков
-        column = df.iloc[:, 0].to_numpy()  # Первый столбец
+        df = pd.read_csv(file_path, header=None)
+        column = df.iloc[:, 0].to_numpy()
         columns.append(column)
 
-    return np.column_stack(columns)
+    return np.column_stack(columns).transpose()
+
+def optimize_for_sti(sti):
+    res = minimize_scalar(lambda tf: fitcoef(sti, tf), bounds=(-5.0, 5.0), method='bounded')
+    return (sti, res.x, res.fun)
 
 
 def fitcoef(StI, TF):
-    for i in range(len(chirp_rate)):
-        acc_data = acc_mx[i]*TF
-        fat = vfunc(ta[StI:StI+iTAI+1])
-        intvib = fat*acc_data[StI:StI+iTAI+1]
-        fvib = k*simps(intvib, ta[StI:StI+iTAI+1])
-        chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
+    # Используем глобальные: chirp_rate, intensity, acc_mx, ta, etc.
+    try:
+        local_chirp = chirp_rate.copy()
+        for i in range(len(local_chirp)):
+            acc_data = acc_mx[i] * TF
+            fat = vfunc(ta[StI:StI+iTAI+1]-ta[StI])
+            intvib = fat * acc_data[StI:StI+iTAI+1]
+            fvib = k * simpson(intvib,x=ta[StI:StI+iTAI+1])
+            local_chirp[i] = local_chirp[i] - fvib / T**2 / (2*np.pi)
+
         initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
-        par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
+        par, cov = curve_fit(sins, local_chirp, intensity, p0=initial_guess, maxfev=10000)
         A, w, ph, s = par
-        dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+        dA = np.sqrt(cov[0,0])
         dg = 1/k/T**2/(A/dA)
-        return dg*1e5
+        return dg * 1e5
+    except Exception as e:
+        return np.inf  # На случай, если curve_fit не сойдется
 
 def aver(a):
     # усреднение
@@ -50,17 +63,35 @@ def aver(a):
     a = a.mean(axis=0) # Считаем среднее по столбцам (ось 0)
     return a
 
+# accSensFunc_ver1
+# def fa(t):
+#     if 0 < t <= ty:
+#         return 2/OR*(1-np.cos(OR*t/2))
+#     elif ty < t <= ty+T:
+#         return t + 2/OR -ty
+#     elif ty+T < t <= 3*ty+T:
+#         return T + 2/OR*(1-np.cos(OR/2*(t-T)))     
+#     elif 3*ty+T < t <= 3*ty+2*T:
+#         return 2*T + 2/OR+3*ty-t       
+#     elif 3*ty+2*T < t <= 4*ty+2*T:
+#         return 2/OR*(1-np.cos(OR/2*(t-2*T)))    
+#     else:
+#         return 0  
+
+# vfunc = np.vectorize(fa)
+
+# accSensFunc_ver2
 def fa(t):
-    if 0 < t <= ty:
-        return 2/OR*(1-np.cos(OR*t/2))
-    elif ty < t <= ty+T:
-        return t + 2/OR -ty
-    elif ty+T < t <= 3*ty+T:
-        return T + 2/OR*(1-np.cos(2/OR*(t-T)))     
-    elif 3*ty+T < t <= 3*ty+2*T:
-        return 2*T + 2/OR+3*ty-t       
-    elif 3*ty+2*T < t <= 4*ty+2*T:
-        return 2/OR*(1-np.cos(2/OR*(t-2*T)))    
+    if 0 <= t < ty:
+        return (1+np.cos(OR*(t-2*ty)))/OR
+    elif ty <= t < ty+T:
+        return t + 1/OR -ty
+    elif ty+T <= t < 3*ty+T:
+        return T + (1+np.cos(OR*(t-T-2*ty)))/OR     
+    elif 3*ty+T <= t < 3*ty+2*T:
+        return 2*T + 1/OR+3*ty-t       
+    elif 3*ty+2*T <= t < 4*ty+2*T:
+        return 1/OR*(1+np.cos(OR*(t-2*T-2*ty)))    
     else:
         return 0  
 
@@ -116,20 +147,20 @@ dg = 1/k/T**2/(A/dA)
 print("sensitivity for noisy data =",dg*1e5*np.sqrt(TF*n), "mGal/.")
 #plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="red")
 
-TF = 1#4.098300562505257
-StI = 0#44
+# TF = 1 #4.098300562505257
+# StI = 0 #44
 
-# correct data
-for i in range(len(chirp_rate)):
-    acc_file = f'gravity_measure_vib/testdata/37290925191200/{i}.csv'
-    acc_data = np.loadtxt(acc_file)/50/150*TF
-    fat = vfunc(ta[StI:StI+iTAI+1])
-    intvib = fat*acc_data[StI:StI+iTAI+1]
-    fvib = k*simps(intvib, ta[StI:StI+iTAI+1])
-    chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
+# # correct data
+# for i in range(len(chirp_rate)):
+#     acc_file = f'gravity_measure_vib/testdata/37290925191200/{i}.csv'
+#     acc_data = np.loadtxt(acc_file)/50/150*TF
+#     fat = vfunc(ta[StI:StI+iTAI+1]-ta[StI])
+#     intvib = fat*acc_data[StI:StI+iTAI+1]
+#     fvib = k*simpson(intvib, ta[StI:StI+iTAI+1])
+#     chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
 
-#plt.plot(chirp_rate, intensity, color="green")
-plt.scatter(chirp_rate, intensity, color="green")
+# #plt.plot(chirp_rate, intensity, color="green")
+# plt.scatter(chirp_rate, intensity, color="green")
 
 # fit corrected data
 # initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
@@ -144,24 +175,16 @@ plt.scatter(chirp_rate, intensity, color="green")
 # find coef for acc
 # Диапазон возможных целых значений StI
 
-sti_range = range(0, 100)#16384-iTAI)  # можно изменить
-
-best_result = float('inf')
-best_sti = None
-best_tf = None
-
-
 acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
-for sti in sti_range:
-    # Минимизируем по TF для текущего sti
-    res = minimize_scalar(lambda tf: fitcoef(sti, tf), bounds=(-5.0, 5.0), method='bounded')
-    
-    if res.fun < best_result:
-        best_result = res.fun
-        best_sti = sti
-        best_tf = res.x
+print(acc_mx.shape)
 
-print("Minimal sensetivity:", best_result*np.sqrt(TF*n))
+sti_range = range(0, 100)  # Диапазон значений StI
+results = Parallel(n_jobs=-1)(delayed(optimize_for_sti)(sti) for sti in sti_range)
+
+# Найдём лучший результат
+best_sti, best_tf, best_result = min(results, key=lambda x: x[2])
+
+print("Minimal sensitivity:", best_result * np.sqrt(TF * n))
 print("Optimal StI:", best_sti)
 print("Optimal TF:", best_tf)
 
