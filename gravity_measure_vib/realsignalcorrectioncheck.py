@@ -4,17 +4,43 @@ from scipy.optimize import curve_fit
 from scipy.optimize import least_squares
 from scipy import stats
 import matplotlib
-
+import os
+import pandas as pd
+from scipy.optimize import minimize_scalar
 from scipy.integrate import simps
 
 def sins(x, A, w, ph, s):
     return A*np.sin(w*x+ph) + s
 
-def sign(A):
-    if A > 0:
-        return 1
-    else:
-        return -1
+def csv_np(folder_path):
+    # Получаем список файлов и сортируем по номеру
+    file_list = sorted([f for f in os.listdir(folder_path) if f.endswith('.csv')],
+                    key=lambda x: int(x.split('.')[0]))
+
+    # Считываем первый столбец из каждого CSV
+    columns = []
+    for file_name in file_list:
+        file_path = os.path.join(folder_path, file_name)
+        df = pd.read_csv(file_path, header=None)  # Без заголовков
+        column = df.iloc[:, 0].to_numpy()  # Первый столбец
+        columns.append(column)
+
+    return np.column_stack(columns)
+
+
+def fitcoef(StI, TF):
+    for i in range(len(chirp_rate)):
+        acc_data = acc_mx[i]*TF
+        fat = vfunc(ta[StI:StI+iTAI+1])
+        intvib = fat*acc_data[StI:StI+iTAI+1]
+        fvib = k*simps(intvib, ta[StI:StI+iTAI+1])
+        chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
+        initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
+        par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
+        A, w, ph, s = par
+        dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+        dg = 1/k/T**2/(A/dA)
+        return dg*1e5
 
 def aver(a):
     # усреднение
@@ -25,7 +51,7 @@ def aver(a):
     return a
 
 def fa(t):
-    if 0 <= t <= ty:
+    if 0 < t <= ty:
         return 2/OR*(1-np.cos(OR*t/2))
     elif ty < t <= ty+T:
         return t + 2/OR -ty
@@ -59,8 +85,8 @@ TF = Tf+2*T+Tpause+4*ty # point time
 TAI = 2*T+4*ty
 OR = np.pi/2/ty
 TRP = 33.556e-3 # время сбора данных red pitaya'ей
-dt = TRP/16384 # Red Pitaya time step
-ta = np.arange(0, 16385)*dt
+dt = TRP/16383 # Red Pitaya time step
+ta = np.arange(0, 16384)*dt
 iTAI = int(np.floor(TAI/dt))
 r = 100000
 
@@ -85,35 +111,58 @@ intensity0 = aver(intensity)
 initial_guess = [(np.max(intensity0) - np.min(intensity0))/2, 2*np.pi*T*T, 0, np.min(intensity0)] 
 par, cov = curve_fit(sins, chirp0, intensity0, p0=initial_guess)
 A, w, ph, s = par
-sg = sign(A)
 dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
 dg = 1/k/T**2/(A/dA)
-print(dg*1e5*np.sqrt(TF*n))
+print("sensitivity for noisy data =",dg*1e5*np.sqrt(TF*n), "mGal/.")
 #plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="red")
+
+TF = 1#4.098300562505257
+StI = 0#44
 
 # correct data
 for i in range(len(chirp_rate)):
     acc_file = f'gravity_measure_vib/testdata/37290925191200/{i}.csv'
-    acc_data = np.loadtxt(acc_file)/50/150
-    fat = vfunc(ta[:iTAI+1])
-    intvib = fat*acc_data[:iTAI+1]
-    fvib = k*simps(intvib, ta[:iTAI+1])
+    acc_data = np.loadtxt(acc_file)/50/150*TF
+    fat = vfunc(ta[StI:StI+iTAI+1])
+    intvib = fat*acc_data[StI:StI+iTAI+1]
+    fvib = k*simps(intvib, ta[StI:StI+iTAI+1])
     chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
 
 #plt.plot(chirp_rate, intensity, color="green")
 plt.scatter(chirp_rate, intensity, color="green")
 
 # fit corrected data
-initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
-par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
-A, w, ph, s = par
-sg = sign(A)
-dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-dg = 1/k/T**2/(A/dA)
-print(dg*1e5*np.sqrt(TF*n))
-chirp_rate = np.sort(chirp_rate)
-plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue")
+# initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
+# par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
+# A, w, ph, s = par
+# dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+# dg = 1/k/T**2/(A/dA)
+# print("sensetivity for correct data =", dg*1e5*np.sqrt(TF*n), 'mGal/.')
+# chirp_rate = np.sort(chirp_rate)
+# plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue")
+
+# find coef for acc
+# Диапазон возможных целых значений StI
+
+sti_range = range(0, 100)#16384-iTAI)  # можно изменить
+
+best_result = float('inf')
+best_sti = None
+best_tf = None
 
 
+acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
+for sti in sti_range:
+    # Минимизируем по TF для текущего sti
+    res = minimize_scalar(lambda tf: fitcoef(sti, tf), bounds=(-5.0, 5.0), method='bounded')
+    
+    if res.fun < best_result:
+        best_result = res.fun
+        best_sti = sti
+        best_tf = res.x
 
-plt.show()
+print("Minimal sensetivity:", best_result*np.sqrt(TF*n))
+print("Optimal StI:", best_sti)
+print("Optimal TF:", best_tf)
+
+# plt.show()

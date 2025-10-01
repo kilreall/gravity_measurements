@@ -66,18 +66,19 @@ start_freq = 90582400/70*5282
 dt = 30e-3 # s для чирпирования
 n = 101 # количество точек
 T = 12e-3 # s временной интервал между пи импульсами
+Tpause = 200e-3
 M = 0
 Tg = 0.0027# T1:0.4;T2:0.089;T4:0.0226;T6:0.0109;T8:0.0061;T10:0.00357;T12:0.0027; # пристрелка периода для fitа
 gR = 9.68
 Tf = 29210*1e-6 # полное време подготовки атомов
-TF = Tf+2*T
+TF = Tf+2*T+Tpause
 ty = 40e-6 # s длительность pi/2 импульса
 OR = np.pi/2/ty
 r = 100000
 
 
 # чтение csv P(a)
-file_path = 'gravity measure vib\data\data_T_12_ms.csv' 
+file_path = 'gravity_measure_vib\data\data_T_12_ms.csv' 
 data = np.genfromtxt(file_path, delimiter=',', names=True, dtype=None)
 data = np.array(data.tolist())
 
@@ -89,7 +90,7 @@ mdata = np.vstack((mdata, (mdata-start_freq)/dt)) # скорости чирпи�
 tidata = np.sin(T*T*(k*gR-2*np.pi*mdata[1]))
 
 # обработка данных по шуму
-filepath = "gravity measure vib\data\kkt11.csv" # now concentrate on kkt11 and kt7
+filepath = "gravity_measure_vib\data\kkt7.csv" # now concentrate on kkt11 and kt7
 adata = np.genfromtxt(filepath, delimiter=',', skip_header=1) 
 ta = adata[:,0]
 ta = ta-ta[0]
@@ -145,14 +146,15 @@ for i in range(len(mdata[1])): # коррекция скорости чирпи�
     fvibm.append(fvibtest)
     tidata[i] = np.sin((k*gR-2*np.pi*mdata[1, i])*T**2+fvibtest)
 
-    fat = vfunc(ta[t1:t6]-ta[t1])
-    #print(ta[t1:t6]-ta[t1])
-    #print(fat)
-    intvib = fat*a[t1:t6]
-    fvib = k*simps(intvib, ta[t1:t6])
-    fvibn.append(fvib)
+    # fat = vfunc(ta[t1:t6]-ta[t1])
+    # #print(ta[t1:t6]-ta[t1])
+    # #print(fat)
+    # intvib = fat*a[t1:t6]
+    # fvib = k*simps(intvib, ta[t1:t6])
+    # fvibn.append(fvib)
+    # mdata[1,i] = mdata[1,i] + fvib/T**2/(2*np.pi) # 2pi? if "+" sensivity improves
+
     t1, t2, t3, t4, t5, t6 = t1+dl, t2+dl, t3+dl, t4+dl, t5+dl, t6+dl
-    mdata[1,i] = mdata[1,i] + fvib/T**2/(2*np.pi) # 2pi? if "+" sensivity improves
 
 #print(t1, t2, t3, t4, t5, t6)
 
@@ -164,7 +166,7 @@ A, w, ph, s = par
 sg = sign(A)
 dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
 dg = 1/k/T**2/(A/dA)
-print(dg*1e8*np.sqrt(TF*n))
+print("sensetivity =",dg*1e8*np.sqrt(TF*n), 'mGal/.')
 
 
 plt.scatter(mdata[1], tidata, color="orange")
