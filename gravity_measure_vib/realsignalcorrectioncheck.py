@@ -35,15 +35,16 @@ def optimize_for_sti(sti):
     return (sti, res.x, res.fun)
 
 
-def fitcoef(StI, TF):
+def fitcoef(StI, TFF):
     # Используем глобальные: chirp_rate, intensity, acc_mx, ta, etc.
     try:
         local_chirp = chirp_rate.copy()
         for i in range(len(local_chirp)):
-            acc_data = acc_mx[i] * TF
-            fat = vfunc(ta[StI:StI+iTAI+1]-ta[StI])
+            acc_data = acc_mx[i] * TFF
+            tan = ta[StI:StI+iTAI+1]-ta[StI]
+            fat = vfunc(tan)
             intvib = fat * acc_data[StI:StI+iTAI+1]
-            fvib = k * simpson(intvib,x=ta[StI:StI+iTAI+1])
+            fvib = k * simpson(intvib,x=tan)
             local_chirp[i] = local_chirp[i] - fvib / T**2 / (2*np.pi)
 
         initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
@@ -63,7 +64,7 @@ def aver(a):
     a = a.mean(axis=0) # Считаем среднее по столбцам (ось 0)
     return a
 
-# accSensFunc_ver1
+# # accSensFunc_ver1
 # def fa(t):
 #     if 0 < t <= ty:
 #         return 2/OR*(1-np.cos(OR*t/2))
@@ -97,6 +98,64 @@ def fa(t):
 
 vfunc = np.vectorize(fa)
 
+def singleWork():
+    global chirp_rate, intensity, TF
+
+    plt.scatter(chirp_rate, intensity, color="orange")
+    chirp0 = chirp_rate[:n]
+    #intensity0 = aver(intensity)
+    #plt.plot(chirp0, intensity, color="black")
+    #plt.scatter(chirp0, intensity0, color="black")
+
+    # fit start data
+    initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
+    par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
+    A, w, ph, s = par
+    dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+    dg = 1/k/T**2/(A/dA)
+    print("sensitivity for noisy data =",dg*1e5*np.sqrt(TF*n), "mGal/.")
+    plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
+
+    TFF = 1 #4.098300562505257
+    StI = 0 #44
+
+    # correct data
+    for i in range(len(chirp_rate)):
+        acc_data = acc_mx[i] * TFF
+        tan = ta[StI:StI+iTAI+1]-ta[StI]
+        fat = vfunc(tan)
+        intvib = fat*acc_data[StI:StI+iTAI+1]
+        fvib = k*simpson(intvib, x=tan)
+        chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
+
+    #plt.plot(chirp_rate, intensity, color="green")
+    plt.scatter(chirp_rate, intensity, color="green")
+
+    # fit corrected data
+    initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
+    par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
+    A, w, ph, s = par
+    dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+    dg = 1/k/T**2/(A/dA)
+    print("sensetivity for correct data =", dg*1e5*np.sqrt(TF*n), 'mGal/.')
+    chirp_rate = np.sort(chirp_rate)
+    plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="green")
+
+    plt.show()
+
+def optimalFind(): # find coef for acc
+    # Диапазон возможных целых значений StI
+
+    sti_range = range(0, 10)  # Диапазон значений StI
+    results = Parallel(n_jobs=-1)(delayed(optimize_for_sti)(sti) for sti in sti_range)
+
+    # Найдём лучший результат
+    best_sti, best_tf, best_result = min(results, key=lambda x: x[2])
+
+    print("Minimal sensitivity:", best_result * np.sqrt(TF * n))
+    print("Optimal StI:", best_sti)
+    print("Optimal TF:", best_tf)
+
 
 c = 3*1e8
 k =  (384.2304844685*1e12 + 4.27167663181519*1e9 - 229.8518*1e6 - 1e9)/c + (384.2304844685*1e12 + 4.27167663181519*1e9 - 229.8518*1e6 - 1e9 - 6.83468261090429*1e9)/c
@@ -129,63 +188,12 @@ data = np.array(data.tolist())
 chirp_rate = data[:,0]
 intensity = data[:,1]
 
-plt.scatter(chirp_rate, intensity, color="black")
 
-# start average data
-chirp0 = chirp_rate[:n]
-intensity0 = aver(intensity)
-
-# plt.plot(chirp0, intensity0, color="orange")
-# plt.scatter(chirp0, intensity0, color="orange")
-
-# fit start data
-initial_guess = [(np.max(intensity0) - np.min(intensity0))/2, 2*np.pi*T*T, 0, np.min(intensity0)] 
-par, cov = curve_fit(sins, chirp0, intensity0, p0=initial_guess)
-A, w, ph, s = par
-dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-dg = 1/k/T**2/(A/dA)
-print("sensitivity for noisy data =",dg*1e5*np.sqrt(TF*n), "mGal/.")
-#plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="red")
-
-# TF = 1 #4.098300562505257
-# StI = 0 #44
-
-# # correct data
-# for i in range(len(chirp_rate)):
-#     acc_file = f'gravity_measure_vib/testdata/37290925191200/{i}.csv'
-#     acc_data = np.loadtxt(acc_file)/50/150*TF
-#     fat = vfunc(ta[StI:StI+iTAI+1]-ta[StI])
-#     intvib = fat*acc_data[StI:StI+iTAI+1]
-#     fvib = k*simpson(intvib, ta[StI:StI+iTAI+1])
-#     chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
-
-# #plt.plot(chirp_rate, intensity, color="green")
-# plt.scatter(chirp_rate, intensity, color="green")
-
-# fit corrected data
-# initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
-# par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
-# A, w, ph, s = par
-# dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-# dg = 1/k/T**2/(A/dA)
-# print("sensetivity for correct data =", dg*1e5*np.sqrt(TF*n), 'mGal/.')
-# chirp_rate = np.sort(chirp_rate)
-# plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue")
-
-# find coef for acc
-# Диапазон возможных целых значений StI
-
+# acc data read
 acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
+
 print(acc_mx.shape)
 
-sti_range = range(0, 100)  # Диапазон значений StI
-results = Parallel(n_jobs=-1)(delayed(optimize_for_sti)(sti) for sti in sti_range)
+singleWork()
 
-# Найдём лучший результат
-best_sti, best_tf, best_result = min(results, key=lambda x: x[2])
-
-print("Minimal sensitivity:", best_result * np.sqrt(TF * n))
-print("Optimal StI:", best_sti)
-print("Optimal TF:", best_tf)
-
-# plt.show()
+#optimalFind()
