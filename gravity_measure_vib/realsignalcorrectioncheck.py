@@ -129,7 +129,7 @@ def singleWork(StI, TFF):
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
     dg = 1/k/T**2/(A/dA)
-    print("sensitivity for noisy data =",dg*1e5*np.sqrt(TF*n), "mGal/.")
+    print("sensitivity for experimental data =",dg*1e5*np.sqrt(TF*n), "mGal/.")
     plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
 
 
@@ -151,7 +151,7 @@ def singleWork(StI, TFF):
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
     dg = 1/k/T**2/(A/dA)
-    print("sensetivity for correct data =", dg*1e5*np.sqrt(TF*n), 'mGal/.')
+    print("sensetivity for corrected data =", dg*1e5*np.sqrt(TF*n), 'mGal/.')
     chirp_rate = np.sort(chirp_rate)
     plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="green")
 
@@ -242,10 +242,10 @@ intensity = data[:,1]
 acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
 
 StI = 0
-TFF = 1.7
+TFF = 1.7541063947710076
 singleWork(StI, TFF)
 
-# delay = 10
-# a = 0.0
-# b = 3.0
+# delay = 150
+# a = -20.0
+# b = 20.0
 # optimalFind(delay, a, b)

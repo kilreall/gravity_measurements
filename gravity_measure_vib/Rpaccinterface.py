@@ -8,11 +8,9 @@ import time
 import random
 import os
 
-import matplotlib.pyplot as plt
 import numpy as np
 import redpitaya_scpi as scpi
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-
+import pyqtgraph as pg
 
 def read_single_char(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -295,9 +293,9 @@ class MainWindow(QWidget):
         self.stop_workers_button.setFixedSize(100, 35)
         self.stop_workers_button.clicked.connect(self.stop_workers)
 
-        # Добавляем FigureCanvas для matplotlib графика
-        self.figure, self.ax = plt.subplots()
-        self.canvas = FigureCanvas(self.figure)
+        # pyqtgraph виджет
+        self.plot_widget = pg.PlotWidget()
+        self.plot = self.plot_widget.plot()
 
         # Создаём главный горизонтальный layout
         main_layout = QHBoxLayout()
@@ -323,7 +321,7 @@ class MainWindow(QWidget):
 
         # Правая колонка с рисунком
         right_layout = QVBoxLayout()
-        right_layout.addWidget(self.canvas)
+        right_layout.addWidget(self.plot_widget)
 
         # Добавляем левую и правую части в главный горизонтальный layout
         main_layout.addLayout(left_layout)
@@ -391,12 +389,7 @@ class MainWindow(QWidget):
 
     @pyqtSlot(np.ndarray)
     def update_plot(self, buff):
-        self.ax.clear()
-        self.ax.plot(buff)
-        self.ax.set_title("CH1 RP voltage")
-        self.ax.set_xlabel("counts")
-        self.ax.set_ylabel("voltage")
-        self.canvas.draw_idle()
+        self.plot.setData(buff)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
