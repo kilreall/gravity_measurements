@@ -38,7 +38,7 @@ def csv_np(folder_path):
 
     return np.column_stack(columns).transpose()
 
-# # coef finding ver1
+# # coef finding var1
 
 # def fitcoef(StI, TFF):
 #     # Используем глобальные: chirp_rate, intensity, acc_mx, ta, etc.
@@ -76,43 +76,86 @@ def csv_np(folder_path):
 #     print("Optimal StI:", best_sti)
 #     print("Optimal TF:", best_tf)
 
-# coef finding ver2
+# # coef finding var2
 
-def fitcoef(TFF, fvib, A, w, ph, s):
+# def fitcoef(TFF, fvib, A, w, ph, s):
 
-    fvib = fvib*TFF
-    local_chirp = chirp_rate.copy()
-    local_chirp = local_chirp - fvib / T**2 / (2*np.pi)
-    fit_intensity = A*np.sin(w*local_chirp+ph)+s
-    intensity_diff = intensity-fit_intensity
+#     fvib = fvib*TFF
+#     local_chirp = chirp_rate.copy()
+#     local_chirp = local_chirp - fvib / T**2 / (2*np.pi)
+#     fit_intensity = A*np.sin(w*local_chirp+ph)+s
+#     intensity_diff = intensity-fit_intensity
 
-    return np.std(intensity_diff)
+#     return np.std(intensity_diff)
 
-def optimize_for_sti(A, w, ph, s, StI, a, b):
+# def optimize_for_sti(A, w, ph, s, StI, a, b):
+
+#     intvib = acc_mx[:, StI:StI+iTAI+1]*fat
+#     fvib = k*simpson(y=intvib, x=tan, axis=-1)
+
+#     res = minimize_scalar(lambda TFF: fitcoef(TFF, fvib, A, w, ph, s), bounds=(a, b), method='bounded')
+#     return (StI, res.x, res.fun)
+
+# def optimalFind(delay, a , b): # find coef for acc
+    
+#     # starting fit finder
+#     initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
+#     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
+#     A, w, ph, s = par
+
+#     # Диапазон возможных целых значений StI
+#     StI_range = range(0, delay)  # Диапазон значений StI
+#     results = Parallel(n_jobs=-1)(delayed(optimize_for_sti)(A, w, ph, s, StI, a, b) for StI in StI_range)
+
+#     # Найдём лучший результат
+#     best_sti, best_tf, best_result = min(results, key=lambda x: x[2])
+
+#     # print("Minimal sensitivity:", best_result * np.sqrt(TF * n))
+#     print("Optimal StI:", best_sti)
+#     print("Optimal TF:", best_tf)
+
+# coef finding var3
+
+def fitcoef(TFF, fvib):
+
+    try:
+        fvib = fvib*TFF
+        local_chirp = chirp_rate.copy()
+        local_chirp = local_chirp - fvib / T**2 / (2*np.pi)
+
+        initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
+        par, cov = curve_fit(sins, local_chirp, intensity, p0=initial_guess, maxfev=10000)
+        A, w, ph, s = par
+        dA = np.sqrt(cov[0,0])
+        dg = 1/k/T**2/(A/dA)
+        return dg * 1e5
+    
+    except Exception as e:
+       return np.inf  # На случай, если curve_fit не сойдется
+
+def optimize_for_sti(StI, a, b):
 
     intvib = acc_mx[:, StI:StI+iTAI+1]*fat
     fvib = k*simpson(y=intvib, x=tan, axis=-1)
 
-    res = minimize_scalar(lambda TFF: fitcoef(TFF, fvib, A, w, ph, s), bounds=(a, b), method='bounded')
+    res = minimize_scalar(lambda TFF: fitcoef(TFF, fvib), bounds=(a, b), method='bounded')
     return (StI, res.x, res.fun)
 
 def optimalFind(delay, a , b): # find coef for acc
     
-    # starting fit finder
-    initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
-    par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
-    A, w, ph, s = par
 
     # Диапазон возможных целых значений StI
     StI_range = range(0, delay)  # Диапазон значений StI
-    results = Parallel(n_jobs=-1)(delayed(optimize_for_sti)(A, w, ph, s, StI, a, b) for StI in StI_range)
+    results = Parallel(n_jobs=-1)(delayed(optimize_for_sti)(StI, a, b) for StI in StI_range)
 
     # Найдём лучший результат
     best_sti, best_tf, best_result = min(results, key=lambda x: x[2])
 
-    # print("Minimal sensitivity:", best_result * np.sqrt(TF * n))
+    print("Minimal sensitivity:", best_result * np.sqrt(TF * n))
     print("Optimal StI:", best_sti)
     print("Optimal TF:", best_tf)
+
+
 
 def singleWork(StI, TFF):
     global chirp_rate, intensity, TF
@@ -159,7 +202,7 @@ def singleWork(StI, TFF):
     plt.show()
 
 
-# # accSensFunc_ver1
+# # accSensFunc_var1
 # def fa(t):
 #     if 0 < t <= ty:
 #         return 2/OR*(1-np.cos(OR*t/2))
@@ -175,7 +218,7 @@ def singleWork(StI, TFF):
 #         return 0  
 
 
-# accSensFunc_ver2
+# accSensFunc_var2
 def fa(t):
     if 0 <= t < ty:
         return (1+np.cos(OR*(t-2*ty)))/OR
@@ -190,7 +233,7 @@ def fa(t):
     else:
         return 0  
 
-# # accSensFunc_ver3
+# # accSensFunc_var3
 # def fa(t):
 #     if 0 < t <= T+2*ty:
 #         return t/(T+2*ty)**2
@@ -241,11 +284,12 @@ intensity = data[:,1]
 # acc data read
 acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
 
-StI = 0
-TFF = 1.7541063947710076
+StI = 0 #0 #0
+TFF =  1.890525016502737 #1.8921237981918044 #1.7541063947710076
 singleWork(StI, TFF)
 
 # delay = 150
-# a = -20.0
-# b = 20.0
-# optimalFind(delay, a, b)
+# a = 0.1
+# b = 10.0
+# optimalFind(delay+1, a, b)
+# print(delay, a, b)
