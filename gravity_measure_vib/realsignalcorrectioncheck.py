@@ -88,15 +88,15 @@ def fitcoef(TFF, fvib, A, w, ph, s):
 
     return np.std(intensity_diff)
 
-def optimize_for_sti(A, w, ph, s, StI):
+def optimize_for_sti(A, w, ph, s, StI, a, b):
 
     intvib = acc_mx[:, StI:StI+iTAI+1]*fat
     fvib = k*simpson(y=intvib, x=tan, axis=-1)
 
-    res = minimize_scalar(lambda TFF: fitcoef(TFF, fvib, A, w, ph, s), bounds=(-5.0, 5.0), method='bounded')
+    res = minimize_scalar(lambda TFF: fitcoef(TFF, fvib, A, w, ph, s), bounds=(a, b), method='bounded')
     return (StI, res.x, res.fun)
 
-def optimalFind(): # find coef for acc
+def optimalFind(delay, a , b): # find coef for acc
     
     # starting fit finder
     initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
@@ -104,20 +104,20 @@ def optimalFind(): # find coef for acc
     A, w, ph, s = par
 
     # Диапазон возможных целых значений StI
-    StI_range = range(0, 10)  # Диапазон значений StI
-    results = Parallel(n_jobs=-1)(delayed(optimize_for_sti)(A, w, ph, s, StI) for StI in StI_range)
+    StI_range = range(0, delay)  # Диапазон значений StI
+    results = Parallel(n_jobs=-1)(delayed(optimize_for_sti)(A, w, ph, s, StI, a, b) for StI in StI_range)
 
     # Найдём лучший результат
     best_sti, best_tf, best_result = min(results, key=lambda x: x[2])
 
-    print("Minimal sensitivity:", best_result * np.sqrt(TF * n))
+    # print("Minimal sensitivity:", best_result * np.sqrt(TF * n))
     print("Optimal StI:", best_sti)
     print("Optimal TF:", best_tf)
 
-def singleWork():
+def singleWork(StI, TFF):
     global chirp_rate, intensity, TF
 
-    plt.scatter(chirp_rate, intensity, color="orange")
+    plt.scatter(chirp_rate, intensity, color="orange", label="experimental")
     chirp0 = chirp_rate[:n]
     #intensity0 = aver(intensity)
     #plt.plot(chirp0, intensity, color="black")
@@ -132,8 +132,6 @@ def singleWork():
     print("sensitivity for noisy data =",dg*1e5*np.sqrt(TF*n), "mGal/.")
     plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
 
-    TFF = 1 #4.098300562505257
-    StI = 0 #44
 
     # correct data
     for i in range(len(chirp_rate)):
@@ -145,7 +143,7 @@ def singleWork():
         chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
 
     #plt.plot(chirp_rate, intensity, color="green")
-    plt.scatter(chirp_rate, intensity, color="green")
+    plt.scatter(chirp_rate, intensity, color="green", label="corrected")
 
     # fit corrected data
     initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
@@ -157,39 +155,40 @@ def singleWork():
     chirp_rate = np.sort(chirp_rate)
     plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="green")
 
+    plt.legend()
     plt.show()
 
 
-# accSensFunc_ver1
-def fa(t):
-    if 0 < t <= ty:
-        return 2/OR*(1-np.cos(OR*t/2))
-    elif ty < t <= ty+T:
-        return t + 2/OR -ty
-    elif ty+T < t <= 3*ty+T:
-        return T + 2/OR*(1-np.cos(OR/2*(t-T)))     
-    elif 3*ty+T < t <= 3*ty+2*T:
-        return 2*T + 2/OR+3*ty-t       
-    elif 3*ty+2*T < t <= 4*ty+2*T:
-        return 2/OR*(1-np.cos(OR/2*(t-2*T)))    
-    else:
-        return 0  
+# # accSensFunc_ver1
+# def fa(t):
+#     if 0 < t <= ty:
+#         return 2/OR*(1-np.cos(OR*t/2))
+#     elif ty < t <= ty+T:
+#         return t + 2/OR -ty
+#     elif ty+T < t <= 3*ty+T:
+#         return T + 2/OR*(1-np.cos(OR/2*(t-T)))     
+#     elif 3*ty+T < t <= 3*ty+2*T:
+#         return 2*T + 2/OR+3*ty-t       
+#     elif 3*ty+2*T < t <= 4*ty+2*T:
+#         return 2/OR*(1-np.cos(OR/2*(t-2*T)))    
+#     else:
+#         return 0  
 
 
 # accSensFunc_ver2
-# def fa(t):
-#     if 0 <= t < ty:
-#         return (1+np.cos(OR*(t-2*ty)))/OR
-#     elif ty <= t < ty+T:
-#         return t + 1/OR -ty
-#     elif ty+T <= t < 3*ty+T:
-#         return T + (1+np.cos(OR*(t-T-2*ty)))/OR     
-#     elif 3*ty+T <= t < 3*ty+2*T:
-#         return 2*T + 1/OR+3*ty-t       
-#     elif 3*ty+2*T <= t < 4*ty+2*T:
-#         return 1/OR*(1+np.cos(OR*(t-2*T-2*ty)))    
-#     else:
-#         return 0  
+def fa(t):
+    if 0 <= t < ty:
+        return (1+np.cos(OR*(t-2*ty)))/OR
+    elif ty <= t < ty+T:
+        return t + 1/OR -ty
+    elif ty+T <= t < 3*ty+T:
+        return T + (1+np.cos(OR*(t-T-2*ty)))/OR     
+    elif 3*ty+T <= t < 3*ty+2*T:
+        return 2*T + 1/OR+3*ty-t       
+    elif 3*ty+2*T <= t < 4*ty+2*T:
+        return 1/OR*(1+np.cos(OR*(t-2*T-2*ty)))    
+    else:
+        return 0  
 
 # # accSensFunc_ver3
 # def fa(t):
@@ -232,7 +231,7 @@ r = 100000
 
 # чтение csv P(a)
 file_path = r'gravity_measure_vib/testdata/37290925191200/interference_signal.csv' 
-data = np.genfromtxt(file_path, delimiter=',', names=True, dtype=None, skip_header=1)
+data = np.genfromtxt(file_path, delimiter=',', dtype=None, skip_header=1)
 data = np.array(data.tolist())
 
 chirp_rate = data[:,0]
@@ -242,8 +241,11 @@ intensity = data[:,1]
 # acc data read
 acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
 
-print(acc_mx.shape)
+StI = 0
+TFF = 1.7
+singleWork(StI, TFF)
 
-#singleWork()
-
-optimalFind()
+# delay = 10
+# a = 0.0
+# b = 3.0
+# optimalFind(delay, a, b)
