@@ -195,7 +195,7 @@ class Worker(QRunnable):
                 buff = (buff.astype(np.float16)+168)  / 8191.0*20
 
                 #buff[1] = buff[1]
-                np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',')
+                np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',', fmt='%.6f')
                 #print(i)
                 i += 1
 
