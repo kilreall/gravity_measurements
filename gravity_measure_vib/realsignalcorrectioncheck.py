@@ -182,36 +182,43 @@ def singleWork(StI, TFF):
     t1, t2, t3, t4, t5, t6 = np.argmin(np.abs(0-ta)), np.argmin(np.abs(ty-ta))+1, np.argmin(np.abs(ty+T-ta)), np.argmin(np.abs(3*ty+T-ta))+1, np.argmin(np.abs(3*ty+2*T-ta)), np.argmin(np.abs(4*ty+2*T-ta))+1
     NF = 16384
 
+    # # correct data ver1
+    # for i in range(len(chirp_rate)):
+
+    #     acc_data = acc_mx[i] * TFF
+
+    #     # data correction
+    #     intvib = fat*acc_data[StI:StI+iTAI+1]
+    #     fvib = k*simpson(y=intvib, x=tan)
+    #     chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
+
+    #     # evaluate vibration influence block3
+
+    #     # # find FFT
+    #     # fft_a = np.fft.fft(acc_data)  # Комплексные коэффициенты Фурье
+    #     # freqs = np.fft.fftfreq(NF, dt)
+
+    #     # # 3. Преобразуем ускорение в скорость (V = A / (i * 2πf))
+    #     # omega = 2 * np.pi * freqs
+    #     # epsilon = 1e-10  # Чтобы избежать деления на 0
+    #     # fft_v = np.zeros_like(fft_a, dtype=complex)
+    #     # fft_v[1:] = fft_a[1:] / (1j * omega[1:])  # Игнорируем нулевую частоту (постоянная составляющая)
+
+    #     # # 4. Обратное FFT → v(t)
+    #     # v = np.fft.ifft(fft_v).real  # Отбрасываем мнимую часть (погрешности вычислений)
+    #     # # v = v - np.mean(v)
+    #     # fVibEval = k*(simpson(v[t1:t2], x=ta[t1:t2])-2*simpson(v[t3:t4], x=ta[t3:t4])+simpson(v[t5:t6], x=ta[t5:t6]))
+    #     # chirp_copy[i] = chirp_copy[i]-fVibEval/2*np.pi/T**2
+
     # correct data
-    for i in range(len(chirp_rate)):
-
-        acc_data = acc_mx[i] * TFF
-
-        # data correction
-        intvib = fat*acc_data[StI:StI+iTAI+1]
-        fvib = k*simpson(y=intvib, x=tan)
-        chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
-
-        # evaluate vibration influence block3
-
-        # # find FFT
-        # fft_a = np.fft.fft(acc_data)  # Комплексные коэффициенты Фурье
-        # freqs = np.fft.fftfreq(NF, dt)
-
-        # # 3. Преобразуем ускорение в скорость (V = A / (i * 2πf))
-        # omega = 2 * np.pi * freqs
-        # epsilon = 1e-10  # Чтобы избежать деления на 0
-        # fft_v = np.zeros_like(fft_a, dtype=complex)
-        # fft_v[1:] = fft_a[1:] / (1j * omega[1:])  # Игнорируем нулевую частоту (постоянная составляющая)
-
-        # # 4. Обратное FFT → v(t)
-        # v = np.fft.ifft(fft_v).real  # Отбрасываем мнимую часть (погрешности вычислений)
-        # # v = v - np.mean(v)
-        # fVibEval = k*(simpson(v[t1:t2], x=ta[t1:t2])-2*simpson(v[t3:t4], x=ta[t3:t4])+simpson(v[t5:t6], x=ta[t5:t6]))
-        # chirp_copy[i] = chirp_copy[i]-fVibEval/2*np.pi/T**2
+    intvib = acc_mx[:, StI:StI+iTAI+1]*fat
+    fvib = k*simpson(y=intvib, x=tan, axis=-1)*TFF
+    chirp_rate = chirp_rate - fvib/T**2/(2*np.pi) # + or -, 2pi?
 
     #plt.plot(chirp_rate, intensity, color="green")
     plt.scatter(chirp_rate, intensity, color="green", label="corrected")
+
+
 
     # evaluate vibration influence block3
     
