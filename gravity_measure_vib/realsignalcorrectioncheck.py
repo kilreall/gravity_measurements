@@ -189,26 +189,26 @@ def singleWork(StI, TFF):
 
         # data correction
         intvib = fat*acc_data[StI:StI+iTAI+1]
-        fvib = k*simpson(intvib, x=tan)
+        fvib = k*simpson(y=intvib, x=tan)
         chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
 
         # evaluate vibration influence block3
 
-        # find FFT
-        fft_a = np.fft.fft(acc_data)  # Комплексные коэффициенты Фурье
-        freqs = np.fft.fftfreq(NF, dt)
+        # # find FFT
+        # fft_a = np.fft.fft(acc_data)  # Комплексные коэффициенты Фурье
+        # freqs = np.fft.fftfreq(NF, dt)
 
-        # 3. Преобразуем ускорение в скорость (V = A / (i * 2πf))
-        omega = 2 * np.pi * freqs
-        epsilon = 1e-10  # Чтобы избежать деления на 0
-        fft_v = np.zeros_like(fft_a, dtype=complex)
-        fft_v[1:] = fft_a[1:] / (1j * omega[1:])  # Игнорируем нулевую частоту (постоянная составляющая)
+        # # 3. Преобразуем ускорение в скорость (V = A / (i * 2πf))
+        # omega = 2 * np.pi * freqs
+        # epsilon = 1e-10  # Чтобы избежать деления на 0
+        # fft_v = np.zeros_like(fft_a, dtype=complex)
+        # fft_v[1:] = fft_a[1:] / (1j * omega[1:])  # Игнорируем нулевую частоту (постоянная составляющая)
 
-        # 4. Обратное FFT → v(t)
-        v = np.fft.ifft(fft_v).real  # Отбрасываем мнимую часть (погрешности вычислений)
-        v = v - np.mean(v)
-        fVibEval = k*(simpson(v[t1:t2], x=ta[t1:t2])-2*simpson(v[t3:t4], x=ta[t3:t4])+simpson(v[t5:t6], x=ta[t5:t6]))
-        chirp_copy[i] = chirp_copy[i]-fVibEval/2*np.pi/T**2
+        # # 4. Обратное FFT → v(t)
+        # v = np.fft.ifft(fft_v).real  # Отбрасываем мнимую часть (погрешности вычислений)
+        # # v = v - np.mean(v)
+        # fVibEval = k*(simpson(v[t1:t2], x=ta[t1:t2])-2*simpson(v[t3:t4], x=ta[t3:t4])+simpson(v[t5:t6], x=ta[t5:t6]))
+        # chirp_copy[i] = chirp_copy[i]-fVibEval/2*np.pi/T**2
 
     #plt.plot(chirp_rate, intensity, color="green")
     plt.scatter(chirp_rate, intensity, color="green", label="corrected")
@@ -225,11 +225,11 @@ def singleWork(StI, TFF):
 
     # from v
 
-    initial_guess = [(np.max(intensity_clear) - np.min(intensity_clear))/2, w, ph, np.min(intensity_clear)] 
-    par, cov = curve_fit(sins, chirp_copy, intensity, p0=initial_guess)
-    dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    dgV = 1/k/T**2/(A/dA)
-    print("vibration sensetivity influence v =", dgV*1e5*np.sqrt(TF*n), 'mGal/.')
+    # initial_guess = [(np.max(intensity_clear) - np.min(intensity_clear))/2, w, ph, np.min(intensity_clear)] 
+    # par, cov = curve_fit(sins, chirp_copy, intensity, p0=initial_guess)
+    # dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+    # dgV = 1/k/T**2/(A/dA)
+    # print("vibration sensetivity influence v =", dgV*1e5*np.sqrt(TF*n), 'mGal/.')
 
 
     # fit corrected data
@@ -243,7 +243,7 @@ def singleWork(StI, TFF):
     plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="green")
 
     print("correction efficiency ga",(dgE-dgC)/dgA*100, "%")
-    print("correction efficiency V",(dgE-dgC)/dgV*100, "%")
+    # print("correction efficiency V",(dgE-dgC)/dgV*100, "%")
 
     plt.legend()
     plt.show()
