@@ -166,37 +166,84 @@ def singleWork(StI, TFF):
     #plt.plot(chirp0, intensity, color="black")
     #plt.scatter(chirp0, intensity0, color="black")
 
+
     # fit start data
     initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    dg = 1/k/T**2/(A/dA)
-    print("sensitivity for experimental data =",dg*1e5*np.sqrt(TF*n), "mGal/.")
+    dgE = 1/k/T**2/(A/dA)
+    print("sensitivity for experimental data =",dgE*1e5*np.sqrt(TF*n), "mGal/.")
     plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
 
+    # evaluate vibration influence block1
+    intensity_clear = A*np.sin(w*chirp_rate+ph)+s
+    chirp_copy = chirp_rate
+    t1, t2, t3, t4, t5, t6 = np.argmin(np.abs(0-ta)), np.argmin(np.abs(ty-ta))+1, np.argmin(np.abs(ty+T-ta)), np.argmin(np.abs(3*ty+T-ta))+1, np.argmin(np.abs(3*ty+2*T-ta)), np.argmin(np.abs(4*ty+2*T-ta))+1
+    NF = 16384
 
     # correct data
     for i in range(len(chirp_rate)):
+
         acc_data = acc_mx[i] * TFF
-        tan = ta[StI:StI+iTAI+1]-ta[StI]
-        fat = vfunc(tan)
+
+        # data correction
         intvib = fat*acc_data[StI:StI+iTAI+1]
         fvib = k*simpson(intvib, x=tan)
         chirp_rate[i] = chirp_rate[i] - fvib/T**2/(2*np.pi) # + or -, 2pi?
 
+        # evaluate vibration influence block3
+
+        # find FFT
+        fft_a = np.fft.fft(acc_data)  # Комплексные коэффициенты Фурье
+        freqs = np.fft.fftfreq(NF, dt)
+
+        # 3. Преобразуем ускорение в скорость (V = A / (i * 2πf))
+        omega = 2 * np.pi * freqs
+        epsilon = 1e-10  # Чтобы избежать деления на 0
+        fft_v = np.zeros_like(fft_a, dtype=complex)
+        fft_v[1:] = fft_a[1:] / (1j * omega[1:])  # Игнорируем нулевую частоту (постоянная составляющая)
+
+        # 4. Обратное FFT → v(t)
+        v = np.fft.ifft(fft_v).real  # Отбрасываем мнимую часть (погрешности вычислений)
+        v = v - np.mean(v)
+        fVibEval = k*(simpson(v[t1:t2], x=ta[t1:t2])-2*simpson(v[t3:t4], x=ta[t3:t4])+simpson(v[t5:t6], x=ta[t5:t6]))
+        chirp_copy[i] = chirp_copy[i]-fVibEval/2*np.pi/T**2
+
     #plt.plot(chirp_rate, intensity, color="green")
     plt.scatter(chirp_rate, intensity, color="green", label="corrected")
+
+    # evaluate vibration influence block3
+    
+    # From ga
+
+    initial_guess = [(np.max(intensity_clear) - np.min(intensity_clear))/2, w, ph, np.min(intensity_clear)] 
+    par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
+    dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+    dgA = 1/k/T**2/(A/dA)
+    print("vibration sensetivity influence ga =", dgA*1e5*np.sqrt(TF*n), 'mGal/.')
+
+    # from v
+
+    initial_guess = [(np.max(intensity_clear) - np.min(intensity_clear))/2, w, ph, np.min(intensity_clear)] 
+    par, cov = curve_fit(sins, chirp_copy, intensity, p0=initial_guess)
+    dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+    dgV = 1/k/T**2/(A/dA)
+    print("vibration sensetivity influence v =", dgV*1e5*np.sqrt(TF*n), 'mGal/.')
+
 
     # fit corrected data
     initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    dg = 1/k/T**2/(A/dA)
-    print("sensetivity for corrected data =", dg*1e5*np.sqrt(TF*n), 'mGal/.')
+    dgC = 1/k/T**2/(A/dA)
+    print("sensetivity for corrected data =", dgC*1e5*np.sqrt(TF*n), 'mGal/.')
     chirp_rate = np.sort(chirp_rate)
     plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="green")
+
+    print("correction efficiency ga",(dgE-dgC)/dgA*100, "%")
+    print("correction efficiency V",(dgE-dgC)/dgV*100, "%")
 
     plt.legend()
     plt.show()
