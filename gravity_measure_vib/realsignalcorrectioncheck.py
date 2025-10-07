@@ -127,8 +127,12 @@ def fitcoef(TFF, fvib):
         par, cov = curve_fit(sins, local_chirp, intensity, p0=initial_guess, maxfev=10000)
         A, w, ph, s = par
         dA = np.sqrt(cov[0,0])
-        dg = 1/k/T**2/(A/dA)
-        return dg * 1e5
+        #dg = 1/k/T**2/(A/dA)
+        dg = 1/k/T**2/(A/dA)**2
+        noise = intensity - (A*np.sin(w*local_chirp+ph)+s)
+        SNR = np.mean(intensity**2)/np.mean(noise**2)
+        dg = 1/k/T**2/SNR
+        return dg * r
     
     except Exception as e:
        return np.inf  # На случай, если curve_fit не сойдется
@@ -172,8 +176,12 @@ def singleWork(StI, TFF):
     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    dgE = 1/k/T**2/(A/dA)
-    print("sensitivity for experimental data =",dgE*1e5*np.sqrt(TF*n), "mGal/.")
+    #dgE = 1/k/T**2/(A/dA)
+    #dgE = 1/k/T**2/(A/dA)**2
+    noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
+    SNR = np.mean(intensity**2)/np.mean(noise**2)
+    dgE = 1/k/T**2/SNR
+    print("sensitivity for experimental data =",dgE*np.sqrt(TF*n)*r, "mGal/.")
     plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
 
     # evaluate vibration influence block1
@@ -227,8 +235,12 @@ def singleWork(StI, TFF):
     initial_guess = [(np.max(intensity_clear) - np.min(intensity_clear))/2, w, ph, np.min(intensity_clear)] 
     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    dgA = 1/k/T**2/(A/dA)
-    print("vibration sensetivity influence ga =", dgA*1e5*np.sqrt(TF*n), 'mGal/.')
+    #dgA = 1/k/T**2/(A/dA)**2
+    #dgA = 1/k/T**2/(A/dA)
+    noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
+    SNR = np.mean(intensity**2)/np.mean(noise**2)
+    dgA = 1/k/T**2/SNR
+    print("vibration sensetivity influence ga =", dgA*np.sqrt(TF*n)*r, 'mGal/.')
 
     # from v
 
@@ -244,8 +256,13 @@ def singleWork(StI, TFF):
     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    dgC = 1/k/T**2/(A/dA)
-    print("sensetivity for corrected data =", dgC*1e5*np.sqrt(TF*n), 'mGal/.')
+    #dgC = 1/k/T**2/(A/dA)
+    #dgC = 1/k/T**2/(A/dA)**2
+    noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
+    SNR = np.mean(intensity**2)/np.mean(noise**2)
+    dgC = 1/k/T**2/SNR
+
+    print("sensetivity for corrected data =", dgC*np.sqrt(TF*n)*r, 'mGal/.')
     chirp_rate = np.sort(chirp_rate)
     plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="green")
 
@@ -324,7 +341,7 @@ tan = ta[:iTAI+1]
 
 fat = vfunc(tan)
 
-r = 100000
+r = 100000000
 
 # чтение csv P(a)
 file_path = r'gravity_measure_vib/testdata/37290925191200/interference_signal.csv' 
@@ -338,12 +355,12 @@ intensity = data[:,1]
 # acc data read
 acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
 
-StI = 0 #0 #0
-TFF =  1.890525016502737 #1.8921237981918044 #1.7541063947710076
+StI = 0
+TFF =  1.81806771101651
 singleWork(StI, TFF)
 
 # delay = 150
-# a = 0.1
-# b = 10.0
+# a = 0.5
+# b = 2.0
 # optimalFind(delay+1, a, b)
 # print(delay, a, b)
