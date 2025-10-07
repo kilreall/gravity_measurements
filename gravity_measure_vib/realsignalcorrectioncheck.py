@@ -258,18 +258,18 @@ def singleWork(StI, TFF):
 
 # # accSensFunc_var1
 # def fa(t):
-#     if 0 < t <= ty:
-#         return 2/OR*(1-np.cos(OR*t/2))
-#     elif ty < t <= ty+T:
-#         return t + 2/OR -ty
-#     elif ty+T < t <= 3*ty+T:
-#         return T + 2/OR*(1-np.cos(OR/2*(t-T)))     
-#     elif 3*ty+T < t <= 3*ty+2*T:
-#         return 2*T + 2/OR+3*ty-t       
-#     elif 3*ty+2*T < t <= 4*ty+2*T:
-#         return 2/OR*(1-np.cos(OR/2*(t-2*T)))    
+#     if 0 <= t <= ty:
+#         return 2*(1-np.cos(OR*t/2))/OR
+#     elif ty <= t <= ty+T:
+#         return t - ty + 2/OR
+#     elif ty+T <= t <= 3*ty+T:
+#         return T + 2*(1-np.cos(OR/2*(t-T)))/OR    
+#     elif 3*ty+T <= t <= 3*ty+2*T:
+#         return 2*T +3*ty - t + 2/OR     
+#     elif 3*ty+2*T <= t <= 4*ty+2*T:
+#         return 2*(1-np.cos(OR/2*(t-2*T)))/OR
 #     else:
-#         return 0  
+#         return 0   
 
 
 # accSensFunc_var2
