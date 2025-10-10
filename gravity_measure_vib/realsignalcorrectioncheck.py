@@ -181,7 +181,11 @@ def singleWork(StI, TFF):
     noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
     SNR = np.mean(intensity**2)/np.mean(noise**2)
     dgE = 1/k/T**2/SNR
-    print("sensitivity for experimental data =",dgE*np.sqrt(TF*n)*r, "mGal/.")
+    print("sensitivity for experimental data =",dgE*np.sqrt(TF*n)*r, "mkGal/.")
+
+    plt.figure(1)
+    plt.xlabel('chirp rate')
+    plt.ylabel('signal')
     plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
 
     # evaluate vibration influence block1
@@ -240,7 +244,7 @@ def singleWork(StI, TFF):
     noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
     SNR = np.mean(intensity**2)/np.mean(noise**2)
     dgA = 1/k/T**2/SNR
-    print("vibration sensetivity influence ga =", dgA*np.sqrt(TF*n)*r, 'mGal/.')
+    print("vibration sensetivity influence ga =", dgA*np.sqrt(TF*n)*r, 'mkGal/.')
 
     # from v
 
@@ -262,15 +266,35 @@ def singleWork(StI, TFF):
     SNR = np.mean(intensity**2)/np.mean(noise**2)
     dgC = 1/k/T**2/SNR
 
-    print("sensetivity for corrected data =", dgC*np.sqrt(TF*n)*r, 'mGal/.')
+    print("sensetivity for corrected data =", dgC*np.sqrt(TF*n)*r, 'mkGal/.')
     chirp_rate = np.sort(chirp_rate)
     plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="green")
 
     print("correction efficiency ga",(dgE-dgC)/dgA*100, "%")
     # print("correction efficiency V",(dgE-dgC)/dgV*100, "%")
 
+    plt.figure(2)
+    plt.scatter(abs(noise), abs(fvib))
+    plt.xlabel("noise")
+    plt.ylabel("fvib")
+
+    plt.figure(3)
+    plt.scatter(chirp_rate, abs(noise))
+    plt.xlabel("chirp rate")
+    plt.ylabel("noise")
+
     plt.legend()
     plt.show()
+
+def phaseCheck(TFF):
+    plt.ion()
+    for i in range(len(chirp_rate)):
+        current_data = acc_mx[i]*TFF
+        plt.plot(ta, current_data)
+        intvib = current_data[:iTAI+1]*fat
+        fvib = k*simpson(y=intvib, x=tan, axis=-1)*TFF
+        print(fvib)
+        stop_input = input()
 
 
 # # accSensFunc_var1
@@ -354,13 +378,16 @@ intensity = data[:,1]
 
 # acc data read
 acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
+acc_mx = acc_mx - np.mean(acc_mx)
 
-StI = 0
-TFF =  1.81806771101651
-singleWork(StI, TFF)
+# StI = 0
+# TFF =  1.81806771101651
+# singleWork(StI, TFF)
 
 # delay = 150
-# a = 0.5
-# b = 2.0
+# a = -5.
+# b = 5.
 # optimalFind(delay+1, a, b)
 # print(delay, a, b)
+
+phaseCheck(1.81806771101651)
