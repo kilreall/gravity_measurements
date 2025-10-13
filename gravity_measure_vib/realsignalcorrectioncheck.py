@@ -237,7 +237,7 @@ def singleWork(StI, TFF):
     # From ga
 
     initial_guess = [(np.max(intensity_clear) - np.min(intensity_clear))/2, w, ph, np.min(intensity_clear)] 
-    par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
+    par, cov = curve_fit(sins, chirp_rate, intensity_clear, p0=initial_guess)
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
     #dgA = 1/k/T**2/(A/dA)**2
     #dgA = 1/k/T**2/(A/dA)
@@ -286,16 +286,67 @@ def singleWork(StI, TFF):
     plt.legend()
     plt.show()
 
-def phaseCheck(TFF):
-    plt.ion()
-    for i in range(len(chirp_rate)):
-        current_data = acc_mx[i]*TFF
-        plt.plot(ta, current_data)
-        intvib = current_data[:iTAI+1]*fat
-        fvib = k*simpson(y=intvib, x=tan, axis=-1)*TFF
-        print(fvib)
-        stop_input = input()
+def phaseCheck(i, StI, TFF):
 
+    # fit start data
+    initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
+    par, cov = curve_fit(sins, chirp_rate[:100], intensity[:100], p0=initial_guess)
+    A, w, ph, s = par
+
+
+    chirp_copy = chirp_rate.copy()  # Используем copy(), чтобы не изменять оригинал
+    #plt.ion()  # Включаем интерактивный режим
+    
+    # correct data
+    intvib = acc_mx[:, StI:StI+iTAI+1]*fat
+    fvib = k*simpson(y=intvib, x=tan, axis=-1)*TFF
+    chirp_copy = chirp_copy - fvib/T**2/(2*np.pi) # + or -, 2pi?
+    
+        
+    shft = chirp_rate[0]
+    # Создаём новую фигуру (новое окно) на каждой итерации
+    fig, axes = plt.subplots(1, 2, figsize=(10, 5))  # 3 субплота в одном окне (1 ряд, 3 столбца)
+    fig.suptitle(f'Iteration {i}')  # Заголовок для окна
+        
+ 
+    
+
+
+    # Первый график: current_data vs ta
+    axes[0].plot(ta*1e3, acc_mx[i])
+    axes[0].set_title(f'acc data, correction = {fvib[i]/T**2/(2*np.pi)} Hz')
+    axes[0].set_xlabel('ta')
+    axes[0].set_ylabel('current_data')
+        
+        
+    # Второй график: chirp_rate vs intensity (до i+1)
+    axes[1].plot(chirp_rate[:100]-shft, intensity[:100], color='blue')
+    axes[1].scatter(chirp_rate[:100]-shft, intensity[:100], color='blue')
+    axes[1].plot(chirp_rate[:100]-shft, A*np.sin(w*chirp_rate[:100]+ph) + s, color='blue')
+    axes[1].scatter(chirp_copy[i]-shft, intensity[i], color='red')
+    axes[1].set_title('Original Chirp')
+    axes[1].set_xlabel('chirp_rate')
+    axes[1].set_ylabel('intensity')
+    
+        
+    # # Третий график: chirp_copy vs intensity (скорректированный)
+    # axes[2].plot(chirp_copy[:i+1]-shft, intensity[:i+1], color='red')
+    # axes[2].scatter(chirp_copy[:i+1]-shft, intensity[:i+1], color='red')
+    # axes[2].set_title('Corrected Chirp')
+    # axes[2].set_xlabel('chirp_copy')
+    # axes[2].set_ylabel('intensity')
+        
+    # # Обновляем окно
+    # plt.tight_layout()  # Улучшаем layout
+    # plt.pause(0.1)  # Короткая пауза для обновления графика
+        
+    # Остановка для проверки
+    # stop_input = input("Press Enter to continue or 'q' to quit: ")
+    # if stop_input.lower() == 'q':
+    #     break
+    
+    #plt.ioff()  # Выключаем интерактивный режим в конце
+    plt.show()  # Показываем финальное состояние, если нужно
 
 # # accSensFunc_var1
 # def fa(t):
@@ -380,8 +431,8 @@ intensity = data[:,1]
 acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
 acc_mx = acc_mx - np.mean(acc_mx)
 
-# StI = 0
-# TFF =  1.81806771101651
+StI = 0
+TFF =  1.81806771101651
 # singleWork(StI, TFF)
 
 # delay = 150
@@ -390,4 +441,5 @@ acc_mx = acc_mx - np.mean(acc_mx)
 # optimalFind(delay+1, a, b)
 # print(delay, a, b)
 
-phaseCheck(1.81806771101651)
+i = 55
+phaseCheck(i, StI, TFF)
