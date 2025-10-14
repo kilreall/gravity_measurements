@@ -162,7 +162,7 @@ def optimalFind(delay, a , b): # find coef for acc
 
 
 def singleWork(StI, TFF):
-    global chirp_rate, intensity, TF
+    global chirp_rate, intensity, TF, n
 
     chirp0 = chirp_rate[:n]
     intensity0 = aver(intensity)
@@ -183,8 +183,8 @@ def singleWork(StI, TFF):
     print("sensitivity for experimental data =",dgE*np.sqrt(TF*n)*r, "mkGal/.")
 
     plt.figure(1)
-    plt.scatter(chirp0, intensity0, color="black", label="averaged")
-    plt.scatter(chirp_rate, intensity, color="orange", label="experimental")
+    plt.scatter(chirp0, intensity0, color="black", label="averaged", s=10)
+    plt.scatter(chirp_rate, intensity, color="orange", label="experimental", s=10)
     plt.xlabel('chirp rate')
     plt.ylabel('signal')
     plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
@@ -201,6 +201,20 @@ def singleWork(StI, TFF):
     dgAv = 1/k/T**2/SNR
     print("sensetivity for averaged data =", dgAv*np.sqrt(TF*n)*r, 'mkGal/.')
     plt.plot(chirp0, Aa*np.sin(wa*chirp0+pha) + sa, color="black")
+
+    # sensetivity for averaged g
+    dgMX = []
+    g0 = 9.8
+    for j in range(len(intensity)//n):
+        initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
+        par, cov = curve_fit(sins, chirp0, intensity[j*n:n*(j+1)], p0=initial_guess)
+        Aa, wa, pha, sa = par
+        m = (wa*g0/k*2*np.pi+pha-np.pi/2)/np.pi
+        gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+        dgMX.append(gj)
+    dgMX = np.array(dgMX)
+    print("list of g", dgMX)
+    print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mkGal/.')
 
     # evaluate vibration influence block1
     intensity_clear = A*np.sin(w*chirp_rate+ph)+s
@@ -242,7 +256,7 @@ def singleWork(StI, TFF):
     chirp_rate = chirp_rate - fvib/T**2/(2*np.pi) # + or -, 2pi?
 
     #plt.plot(chirp_rate, intensity, color="green")
-    plt.scatter(chirp_rate, intensity, color="green", label="corrected")
+    plt.scatter(chirp_rate, intensity, color="green", label="corrected", s=10)
 
 
 
@@ -305,7 +319,7 @@ def phaseCheck(i, StI, TFF):
 
     # fit start data
     initial_guess = [(np.max(intensity) - np.min(intensity))/2, 2*np.pi*T*T, 0, np.min(intensity)] 
-    par, cov = curve_fit(sins, chirp_rate[:100], intensity[:100], p0=initial_guess)
+    par, cov = curve_fit(sins, chirp_rate[:n], intensity[:n], p0=initial_guess)
     A, w, ph, s = par
 
 
@@ -412,7 +426,7 @@ k = k*2*np.pi
 #print(k)
 # start_freq = 90582400/70*5282
 # dt = 30e-3 # s для чирпирования
-n = 101-1 # количество точек
+n = 101 # количество точек
 T = 10200e-6 # s временной интервал между пи импульсами
 M = 0
 Tg = 0.00357# T1:0.4;T2:0.089;T4:0.0226;T6:0.0109;T8:0.0061;T10:0.00357;T12:0.0027; # пристрелка периода для fitа
@@ -441,7 +455,6 @@ data = np.array(data.tolist())
 chirp_rate = data[:,0]
 intensity = data[:,1]
 
-
 # acc data read
 acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
 acc_mx = acc_mx - np.mean(acc_mx)
@@ -456,5 +469,5 @@ singleWork(StI, TFF)
 # optimalFind(delay+1, a, b)
 # print(delay, a, b)
 
-# i = 1
-# phaseCheck(i, StI, TFF)
+#i = 55
+#phaseCheck(i, StI, TFF)
