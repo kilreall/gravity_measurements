@@ -164,11 +164,10 @@ def optimalFind(delay, a , b): # find coef for acc
 def singleWork(StI, TFF):
     global chirp_rate, intensity, TF
 
-    plt.scatter(chirp_rate, intensity, color="orange", label="experimental")
     chirp0 = chirp_rate[:n]
-    #intensity0 = aver(intensity)
+    intensity0 = aver(intensity)
     #plt.plot(chirp0, intensity, color="black")
-    #plt.scatter(chirp0, intensity0, color="black")
+
 
 
     # fit start data
@@ -184,9 +183,24 @@ def singleWork(StI, TFF):
     print("sensitivity for experimental data =",dgE*np.sqrt(TF*n)*r, "mkGal/.")
 
     plt.figure(1)
+    plt.scatter(chirp0, intensity0, color="black", label="averaged")
+    plt.scatter(chirp_rate, intensity, color="orange", label="experimental")
     plt.xlabel('chirp rate')
     plt.ylabel('signal')
     plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
+
+    # fit average data
+    initial_guess = [(np.max(intensity0) - np.min(intensity0))/2, 2*np.pi*T*T, 0, np.min(intensity0)] 
+    par, cov = curve_fit(sins, chirp0, intensity0, p0=initial_guess)
+    Aa, wa, pha, sa = par
+    dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+    #dgC = 1/k/T**2/(A/dA)
+    #dgC = 1/k/T**2/(A/dA)**2
+    noise = intensity0 - (Aa*np.sin(wa*chirp0+pha)+sa)
+    SNR = np.mean(intensity0**2)/np.mean(noise**2)
+    dgAv = 1/k/T**2/SNR
+    print("sensetivity for averaged data =", dgAv*np.sqrt(TF*n)*r, 'mkGal/.')
+    plt.plot(chirp0, Aa*np.sin(wa*chirp0+pha) + sa, color="black")
 
     # evaluate vibration influence block1
     intensity_clear = A*np.sin(w*chirp_rate+ph)+s
@@ -272,6 +286,7 @@ def singleWork(StI, TFF):
 
     print("correction efficiency ga",(dgE-dgC)/dgA*100, "%")
     # print("correction efficiency V",(dgE-dgC)/dgV*100, "%")
+    plt.legend()
 
     plt.figure(2)
     plt.scatter(abs(noise), abs(fvib))
@@ -283,7 +298,7 @@ def singleWork(StI, TFF):
     plt.xlabel("chirp rate")
     plt.ylabel("noise")
 
-    plt.legend()
+    #plt.legend()
     plt.show()
 
 def phaseCheck(i, StI, TFF):
@@ -433,7 +448,7 @@ acc_mx = acc_mx - np.mean(acc_mx)
 
 StI = 0
 TFF =  1.81806771101651
-# singleWork(StI, TFF)
+singleWork(StI, TFF)
 
 # delay = 150
 # a = -5.
@@ -441,5 +456,5 @@ TFF =  1.81806771101651
 # optimalFind(delay+1, a, b)
 # print(delay, a, b)
 
-i = 55
-phaseCheck(i, StI, TFF)
+# i = 1
+# phaseCheck(i, StI, TFF)
