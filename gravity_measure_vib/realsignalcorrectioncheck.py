@@ -9,7 +9,7 @@ import pandas as pd
 from scipy.optimize import minimize_scalar
 from scipy.integrate import simpson
 from joblib import Parallel, delayed
-
+from scipy.signal import find_peaks
 
 
 def aver(a):
@@ -129,11 +129,11 @@ def fitcoef(TFF, fvib):
         par, cov = curve_fit(sins, local_chirp, intensity, p0=initial_guess, maxfev=10000)
         A, w, ph, s = par
         dA = np.sqrt(cov[0,0])
-        #dg = 1/k/T**2/(A/dA)
-        dg = 1/k/T**2/(A/dA)**2
-        noise = intensity - (A*np.sin(w*local_chirp+ph)+s)
-        SNR = np.mean(intensity**2)/np.mean(noise**2)
-        dg = 1/k/T**2/SNR
+        dg = 1/k/T**2/(A/dA)
+        # dg = 1/k/T**2/(A/dA)**2
+        # noise = intensity - (A*np.sin(w*local_chirp+ph)+s)
+        # SNR = np.mean(intensity**2)/np.mean(noise**2)
+        # dg = 1/k/T**2/SNR
         return dg * r
     
     except Exception as e:
@@ -177,12 +177,40 @@ def singleWork(StI, TFF):
     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    #dgE = 1/k/T**2/(A/dA)
-    #dgE = 1/k/T**2/(A/dA)**2
-    noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
-    SNR = np.mean(intensity**2)/np.mean(noise**2)
-    dgE = 1/k/T**2/SNR
-    print("sensitivity for experimental data =",dgE*np.sqrt(TF*n)*r, "mkGal/.")
+    dgE = 1/k/T**2/(A/dA*1.52)
+
+    # noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
+
+    # # Производная фита
+    # ddt_fit = np.gradient(A*np.sin(w*chirp_rate+ph)+s, chirp_rate)
+
+    # # Нахождение всех локальных максимумов абсолютного значения производной
+    # # Порог для пиков: height=0.1 (минимальная высота, адаптируйте), prominence загружаем
+    # peaks, _ = find_peaks(np.abs(ddt_fit), height=0.1, prominence=None)  # height — минимальная амплитуда пика
+
+    # # Если пиков слишком мало/много, отрегулируйте параметры find_peaks
+    # if len(peaks) == 0:
+    #     print("Пики не найдены; проверьте параметры или данные.")
+    #     peaks = [np.argmax(np.abs(ddt_fit))]  # Fallback к одному максимуму
+
+    # # Окрестность вокруг каждого пика (например, ±5 индексов)
+    # window = 5
+    # selected_indices = set()  # Unique индексы
+    # for peak_idx in peaks:
+    #     start_idx = max(0, peak_idx - window)
+    #     end_idx = min(len(ddt_fit), peak_idx + window + 1)
+    #     for idx in range(start_idx, end_idx):
+    #         selected_indices.add(idx)
+
+    # # Преобразование в список для сортировки
+    # selected_list = sorted(list(selected_indices))
+
+    # # sigmaP: стандартное отклонение шума в окрестностях всех пиков
+    # sigmaP = np.std(noise[selected_list])
+    # SNR = abs(A)/sigmaP
+    # dgE = 1/k/T**2/SNR
+
+    print("sensitivity for experimental data =", dgE*np.sqrt(TF*n)*r, "mGal/.")
 
     plt.figure(1)
     plt.scatter(chirp0, intensity0, color="black", label="averaged", s=10)
@@ -195,18 +223,18 @@ def singleWork(StI, TFF):
     initial_guess = [(np.max(intensity0) - np.min(intensity0))/2, 2*np.pi*T*T, 0, np.min(intensity0)] 
     par, cov = curve_fit(sins, chirp0, intensity0, p0=initial_guess)
     Aa, wa, pha, sa = par
-    dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+    dwa, dpha, dAa = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
     #dgC = 1/k/T**2/(A/dA)
     #dgC = 1/k/T**2/(A/dA)**2
-    noise = intensity0 - (Aa*np.sin(wa*chirp0+pha)+sa)
-    SNR = np.mean(intensity0**2)/np.mean(noise**2)
-    dgAv = 1/k/T**2/SNR
-    print("sensetivity for averaged data =", dgAv*np.sqrt(TF*n)*r, 'mkGal/.')
+    #noise = intensity0 - (Aa*np.sin(wa*chirp0+pha)+sa)
+    #SNR = np.mean(intensity0**2)/np.mean(noise**2)
+    dgAv = 1/k/T**2/(Aa/dAa*1.52)
+    print("sensetivity for averaged data =", dgAv*np.sqrt(TF*n)*r, 'mGal/.')
     plt.plot(chirp0, Aa*np.sin(wa*chirp0+pha) + sa, color="black")
 
     # sensetivity for averaged g
     dgMX = []
-    g0 = 9.8
+    g0 = 9.955
     for j in range(len(intensity)//n):
         initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
         par, cov = curve_fit(sins, chirp0, intensity[j*n:n*(j+1)], p0=initial_guess)
@@ -242,7 +270,7 @@ def singleWork(StI, TFF):
             dgMX.append(gj0)    
     dgMX = np.array(dgMX)
     print("list of g", dgMX)
-    print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mkGal/.')
+    print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mGal/.')
 
     # evaluate vibration influence block1
     intensity_clear = A*np.sin(w*chirp_rate+ph)+s
@@ -295,12 +323,12 @@ def singleWork(StI, TFF):
     initial_guess = [(np.max(intensity_clear) - np.min(intensity_clear))/2, w, ph, np.min(intensity_clear)] 
     par, cov = curve_fit(sins, chirp_rate, intensity_clear, p0=initial_guess)
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
+    dgA = 1/k/T**2/(A/dA*1.52)
     #dgA = 1/k/T**2/(A/dA)**2
-    #dgA = 1/k/T**2/(A/dA)
-    noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
-    SNR = np.mean(intensity**2)/np.mean(noise**2)
-    dgA = 1/k/T**2/SNR
-    print("vibration sensetivity influence ga =", dgA*np.sqrt(TF*n)*r, 'mkGal/.')
+    #noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
+    #SNR = np.mean(intensity**2)/np.mean(noise**2)
+    #dgA = 1/k/T**2/SNR
+    print("vibration sensetivity influence ga =", dgA*np.sqrt(TF*n)*r, 'mGal/.')
 
     # from v
 
@@ -316,15 +344,56 @@ def singleWork(StI, TFF):
     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    #dgC = 1/k/T**2/(A/dA)
+    dgC = 1/k/T**2/(A/dA*1.52)
     #dgC = 1/k/T**2/(A/dA)**2
     noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
-    SNR = np.mean(intensity**2)/np.mean(noise**2)
-    dgC = 1/k/T**2/SNR
+    #SNR = np.mean(intensity**2)/np.mean(noise**2)
+    #dgC = 1/k/T**2/SNR
 
-    print("sensetivity for corrected data =", dgC*np.sqrt(TF*n)*r, 'mkGal/.')
+    print("sensetivity for corrected data =", dgC*np.sqrt(TF*n)*r, 'mGal/.')
     chirp_rate = np.sort(chirp_rate)
     plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="green")
+
+    # # sensetivity for averaged g afer correction
+    # dgMX = []
+    # g0 = 9.955
+    # for j in range(len(intensity)//n):
+    #     initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
+    #     par, cov = curve_fit(sins, chirp_rate[j*n:n*(j+1)], intensity[j*n:n*(j+1)], p0=initial_guess)
+    #     A, wa, ph, s = par
+
+    #     if j == 0:
+    #         m = round((w*k*g0/2/np.pi+ph-np.pi/2)/np.pi)
+    #         gj = (np.pi/2+np.pi*m-ph)/w*2*np.pi/k
+    #         dgMX.append(gj)
+    #     else:
+    #         np_buff = np.array(gj)
+    #         mean_buff = np.mean(np_buff)
+    #         m = round((w*k*g0/2/np.pi+ph-np.pi/2)/np.pi)
+    #         gj0 = (np.pi/2+np.pi*m-ph)/w*2*np.pi/k
+    #         gj1 = (np.pi/2+np.pi*(m+1)-ph)/w*2*np.pi/k
+    #         gj_1 = (np.pi/2+np.pi*(m-1)-ph)/w*2*np.pi/k
+    #         if abs(gj1-mean_buff) < abs(gj0-mean_buff):
+    #             m += 1
+    #             gj0 = gj1
+    #             gj1 = (np.pi/2+np.pi*(m+1)-ph)/w*2*np.pi/k
+    #             while abs(gj1-mean_buff) < abs(gj0-mean_buff):
+    #                 m += 1
+    #                 gj0 = gj1
+    #                 gj1 = (np.pi/2+np.pi*(m+1)-pha)/w*2*np.pi/k
+    #         elif abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+    #             m -= 1
+    #             gj0 = gj_1
+    #             gj_1 = (np.pi/2+np.pi*(m-1)-ph)/w*2*np.pi/k
+    #             while abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+    #                 m -= 1
+    #                 gj0 = gj_1
+    #                 gj_1 = (np.pi/2+np.pi*(m-1)-ph)/w*2*np.pi/k
+    #         dgMX.append(gj0)    
+    # dgMX = np.array(dgMX)
+    # print("list of g after correction", dgMX)
+    # print("sensetivity for averaged g after correction =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mGal/.')
+
 
     print("correction efficiency ga",(dgE-dgC)/dgA*100, "%")
     # print("correction efficiency V",(dgE-dgC)/dgV*100, "%")
@@ -450,7 +519,7 @@ def sensCount():
             dgMX.append(gj0)    
     dgMX = np.array(dgMX)
     print("list of g", dgMX)
-    print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mkGal/.')
+    print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mGal/.')
     plt.show()
 
 # # accSensFunc_var1
@@ -521,7 +590,7 @@ tan = ta[:iTAI+1]
 
 fat = vfunc(tan)
 
-r = 100000000
+r = 100000
 
 # чтение csv P(a)
 file_path = r'gravity_measure_vib/testdata/37290925191200/interference_signal.csv' 
@@ -536,8 +605,8 @@ acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
 acc_mx = acc_mx - np.mean(acc_mx)
 
 StI = 0
-TFF =  1.81806771101651
-#singleWork(StI, TFF)
+TFF =  1.8824673434846304
+singleWork(StI, TFF)
 
 # delay = 150
 # a = -5.
@@ -548,4 +617,4 @@ TFF =  1.81806771101651
 # i = 55
 # phaseCheck(i, StI, TFF)
 
-sensCount()
+#sensCount()
