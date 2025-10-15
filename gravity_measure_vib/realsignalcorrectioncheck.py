@@ -10,6 +10,8 @@ from scipy.optimize import minimize_scalar
 from scipy.integrate import simpson
 from joblib import Parallel, delayed
 
+
+
 def aver(a):
     # усреднение
     trimmed_len = (len(a) // n) * n
@@ -209,9 +211,35 @@ def singleWork(StI, TFF):
         initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
         par, cov = curve_fit(sins, chirp0, intensity[j*n:n*(j+1)], p0=initial_guess)
         Aa, wa, pha, sa = par
-        m = (wa*g0/k*2*np.pi+pha-np.pi/2)/np.pi
-        gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
-        dgMX.append(gj)
+
+        if j == 0:
+            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+            gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+            dgMX.append(gj)
+        else:
+            np_buff = np.array(gj)
+            mean_buff = np.mean(np_buff)
+            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+            gj0 = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+            gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+            gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+            if abs(gj1-mean_buff) < abs(gj0-mean_buff):
+                m += 1
+                gj0 = gj1
+                gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+                while abs(gj1-mean_buff) < abs(gj0-mean_buff):
+                    m += 1
+                    gj0 = gj1
+                    gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+            elif abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+                m -= 1
+                gj0 = gj_1
+                gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+                while abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+                    m -= 1
+                    gj0 = gj_1
+                    gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+            dgMX.append(gj0)    
     dgMX = np.array(dgMX)
     print("list of g", dgMX)
     print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mkGal/.')
@@ -377,6 +405,54 @@ def phaseCheck(i, StI, TFF):
     #plt.ioff()  # Выключаем интерактивный режим в конце
     plt.show()  # Показываем финальное состояние, если нужно
 
+def sensCount():
+    global chirp_rate, intensity, TF, n
+
+    chirp0 = chirp_rate[:n]
+    intensity0 = aver(intensity)
+
+
+    # sensetivity for averaged g
+    dgMX = []
+    g0 = 9.955
+    for j in range(len(intensity)//n):
+        initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
+        par, cov = curve_fit(sins, chirp0, intensity[j*n:n*(j+1)], p0=initial_guess)
+        Aa, wa, pha, sa = par
+        plt.plot(chirp0*2*np.pi/k, Aa*np.sin(wa*chirp0+pha)+sa)
+        if j == 0:
+            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+            gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+            dgMX.append(gj)
+        else:
+            np_buff = np.array(gj)
+            mean_buff = np.mean(np_buff)
+            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+            gj0 = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+            gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+            gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+            if abs(gj1-mean_buff) < abs(gj0-mean_buff):
+                m += 1
+                gj0 = gj1
+                gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+                while abs(gj1-mean_buff) < abs(gj0-mean_buff):
+                    m += 1
+                    gj0 = gj1
+                    gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+            elif abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+                m -= 1
+                gj0 = gj_1
+                gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+                while abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+                    m -= 1
+                    gj0 = gj_1
+                    gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+            dgMX.append(gj0)    
+    dgMX = np.array(dgMX)
+    print("list of g", dgMX)
+    print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mkGal/.')
+    plt.show()
+
 # # accSensFunc_var1
 # def fa(t):
 #     if 0 <= t <= ty:
@@ -461,7 +537,7 @@ acc_mx = acc_mx - np.mean(acc_mx)
 
 StI = 0
 TFF =  1.81806771101651
-singleWork(StI, TFF)
+#singleWork(StI, TFF)
 
 # delay = 150
 # a = -5.
@@ -469,5 +545,7 @@ singleWork(StI, TFF)
 # optimalFind(delay+1, a, b)
 # print(delay, a, b)
 
-#i = 55
-#phaseCheck(i, StI, TFF)
+# i = 55
+# phaseCheck(i, StI, TFF)
+
+sensCount()
