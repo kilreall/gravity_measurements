@@ -129,7 +129,8 @@ def fitcoef(TFF, fvib):
         par, cov = curve_fit(sins, local_chirp, intensity, p0=initial_guess, maxfev=10000)
         A, w, ph, s = par
         dA = np.sqrt(cov[0,0])
-        dg = 1/k/T**2/(A/dA)
+        dg = 1/k/T**2/(A/dA*sk)
+        dg = abs(dg)
         # dg = 1/k/T**2/(A/dA)**2
         # noise = intensity - (A*np.sin(w*local_chirp+ph)+s)
         # SNR = np.mean(intensity**2)/np.mean(noise**2)
@@ -177,8 +178,8 @@ def singleWork(StI, TFF):
     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    dgE = 1/k/T**2/(A/dA*1.52)
-
+    dgE = 1/k/T**2/(A/dA*sk)
+    dgE = abs(dgE)
     # noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
 
     # # Производная фита
@@ -228,49 +229,50 @@ def singleWork(StI, TFF):
     #dgC = 1/k/T**2/(A/dA)**2
     #noise = intensity0 - (Aa*np.sin(wa*chirp0+pha)+sa)
     #SNR = np.mean(intensity0**2)/np.mean(noise**2)
-    dgAv = 1/k/T**2/(Aa/dAa*1.52)
+    dgAv = 1/k/T**2/(Aa/dAa*sk)
+    dgAv = abs(dgAv)
     print("sensetivity for averaged data =", dgAv*np.sqrt(TF*n)*r, 'mGal/.')
     plt.plot(chirp0, Aa*np.sin(wa*chirp0+pha) + sa, color="black")
 
-    # sensetivity for averaged g
-    dgMX = []
-    g0 = 9.955
-    for j in range(len(intensity)//n):
-        initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
-        par, cov = curve_fit(sins, chirp0, intensity[j*n:n*(j+1)], p0=initial_guess)
-        Aa, wa, pha, sa = par
+    # # sensetivity for averaged g
+    # dgMX = []
+    # g0 = 9.955
+    # for j in range(len(intensity)//n):
+    #     initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
+    #     par, cov = curve_fit(sins, chirp0, intensity[j*n:n*(j+1)], p0=initial_guess)
+    #     Aa, wa, pha, sa = par
 
-        if j == 0:
-            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
-            gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
-            dgMX.append(gj)
-        else:
-            np_buff = np.array(gj)
-            mean_buff = np.mean(np_buff)
-            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
-            gj0 = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
-            gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
-            gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
-            if abs(gj1-mean_buff) < abs(gj0-mean_buff):
-                m += 1
-                gj0 = gj1
-                gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
-                while abs(gj1-mean_buff) < abs(gj0-mean_buff):
-                    m += 1
-                    gj0 = gj1
-                    gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
-            elif abs(gj_1-mean_buff) < abs(gj0-mean_buff):
-                m -= 1
-                gj0 = gj_1
-                gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
-                while abs(gj_1-mean_buff) < abs(gj0-mean_buff):
-                    m -= 1
-                    gj0 = gj_1
-                    gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
-            dgMX.append(gj0)    
-    dgMX = np.array(dgMX)
-    print("list of g", dgMX)
-    print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mGal/.')
+    #     if j == 0:
+    #         m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+    #         gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+    #         dgMX.append(gj)
+    #     else:
+    #         np_buff = np.array(gj)
+    #         mean_buff = np.mean(np_buff)
+    #         m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+    #         gj0 = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+    #         gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+    #         gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+    #         if abs(gj1-mean_buff) < abs(gj0-mean_buff):
+    #             m += 1
+    #             gj0 = gj1
+    #             gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+    #             while abs(gj1-mean_buff) < abs(gj0-mean_buff):
+    #                 m += 1
+    #                 gj0 = gj1
+    #                 gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+    #         elif abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+    #             m -= 1
+    #             gj0 = gj_1
+    #             gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+    #             while abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+    #                 m -= 1
+    #                 gj0 = gj_1
+    #                 gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+    #         dgMX.append(gj0)    
+    # dgMX = np.array(dgMX)
+    # print("list of g", dgMX)
+    # print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mGal/.')
 
     # evaluate vibration influence block1
     intensity_clear = A*np.sin(w*chirp_rate+ph)+s
@@ -323,7 +325,8 @@ def singleWork(StI, TFF):
     initial_guess = [(np.max(intensity_clear) - np.min(intensity_clear))/2, w, ph, np.min(intensity_clear)] 
     par, cov = curve_fit(sins, chirp_rate, intensity_clear, p0=initial_guess)
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    dgA = 1/k/T**2/(A/dA*1.52)
+    dgA = 1/k/T**2/(A/dA*sk)
+    dgA = abs(dgA)
     #dgA = 1/k/T**2/(A/dA)**2
     #noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
     #SNR = np.mean(intensity**2)/np.mean(noise**2)
@@ -344,7 +347,8 @@ def singleWork(StI, TFF):
     par, cov = curve_fit(sins, chirp_rate, intensity, p0=initial_guess)
     A, w, ph, s = par
     dw, dph, dA = np.sqrt(cov[1,1]), np.sqrt(cov[2,2]), np.sqrt(cov[0,0])
-    dgC = 1/k/T**2/(A/dA*1.52)
+    dgC = 1/k/T**2/(A/dA*sk)
+    dgC = abs(dgC)
     #dgC = 1/k/T**2/(A/dA)**2
     noise = intensity - (A*np.sin(w*chirp_rate+ph)+s)
     #SNR = np.mean(intensity**2)/np.mean(noise**2)
@@ -571,29 +575,33 @@ k = k*2*np.pi
 #print(k)
 # start_freq = 90582400/70*5282
 # dt = 30e-3 # s для чирпирования
-n = 101 # количество точек
-T = 10200e-6 # s временной интервал между пи импульсами
+n = 41 # количество точек
+T = 8200e-6 # s временной интервал между пи импульсами
 M = 0
 Tg = 0.00357# T1:0.4;T2:0.089;T4:0.0226;T6:0.0109;T8:0.0061;T10:0.00357;T12:0.0027; # пристрелка периода для fitа
 gR = 9.68
 Tf = 30528*1e-6 # полное време подготовки атомов
-ty = 25e-6 # s длительность pi/2 импульса
+ty = 20e-6 # s длительность pi/2 импульса
 Tpause = 500e-3
 TF = Tf+2*T+Tpause+4*ty # point time
 TAI = 2*T+4*ty
 OR = np.pi/2/ty
 TRP = 33.556e-3 # время сбора данных red pitaya'ей
+Ampl = 5
 dt = TRP/16383 # Red Pitaya time step
 iTAI = int(np.floor(TAI/dt))
 ta = np.arange(0, 16384)*dt
 tan = ta[:iTAI+1]
 
+
+
 fat = vfunc(tan)
 
-r = 100000
+r = 100000 # коэф единиц измерения
+sk = 1 # коэф поправки для оценки погрешности
 
 # чтение csv P(a)
-file_path = r'gravity_measure_vib/testdata/37290925191200/interference_signal.csv' 
+file_path = r'gravity_measure_vib/testdata/noisy_data.csv' 
 data = np.genfromtxt(file_path, delimiter=',', dtype=None, skip_header=1)
 data = np.array(data.tolist())
 
@@ -601,18 +609,18 @@ chirp_rate = data[:,0]
 intensity = data[:,1]
 
 # acc data read
-acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/50
+acc_mx = csv_np('gravity_measure_vib/testdata/noisy_data')/150/Ampl
 acc_mx = acc_mx - np.mean(acc_mx)
 
-StI = 0
-TFF =  1.8824673434846304
-singleWork(StI, TFF)
+# StI = 0
+# TFF =  1
+# singleWork(StI, TFF)
 
-# delay = 150
-# a = -5.
-# b = 5.
-# optimalFind(delay+1, a, b)
-# print(delay, a, b)
+delay = 150
+a = -10.
+b = 10.
+optimalFind(delay+1, a, b)
+print(delay, a, b)
 
 # i = 55
 # phaseCheck(i, StI, TFF)

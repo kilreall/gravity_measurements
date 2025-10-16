@@ -186,20 +186,20 @@ class Worker(QRunnable):
                     break
 
                 rp.tx_txt('ACQ:SOUR1:DATA?')
-                buff = rp.rx_arb()
-                rp.tx_txt('ACQ:STOP')
+                buff_bin = rp.rx_arb()
+                rp.tx_txt('ACQ:STOP') # возможно стоит убрать ввиду бессмысленности
                 #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
                 #buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
                 #buff = np.array(buff_string).astype(np.float64)
-                buff = np.frombuffer(buff, dtype='>i2')
-                buff = (buff.astype(np.float16)+168)  / 8191.0*20
+                buff_int = np.frombuffer(buff_bin, dtype='>i2')
+                buff_float = (buff_int.astype(np.float16)+168)  / 8191.0*20
 
                 #buff[1] = buff[1]
-                np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff, delimiter=',', fmt='%.6f')
+                np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff_int, delimiter=',', fmt='%.6f')
                 #print(i)
                 i += 1
 
-                self.signals.data.emit(buff)  # Отправляем данные в основной поток
+                self.signals.data.emit(buff_float)  # Отправляем данные в основной поток
 
                 check_stat = read_single_char("%s/scan_state.txt" % path)
                 #time.sleep(0)  # чтобы не грузить CPU
