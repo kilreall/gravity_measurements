@@ -14,7 +14,7 @@ import pyqtgraph as pg
 
 def read_single_char(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
-        return f.read(1)
+        return int(f.read(1))
 
 
 def write_char(file_path, char):
@@ -187,7 +187,7 @@ class Worker(QRunnable):
 
                 rp.tx_txt('ACQ:SOUR1:DATA?')
                 buff_bin = rp.rx_arb()
-                rp.tx_txt('ACQ:STOP') # возможно стоит убрать ввиду бессмысленности
+                #rp.tx_txt('ACQ:STOP') # возможно стоит убрать ввиду бессмысленности
                 #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
                 #buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
                 #buff = np.array(buff_string).astype(np.float64)
@@ -195,13 +195,14 @@ class Worker(QRunnable):
                 buff_float = (buff_int.astype(np.float16)+168)  / 8191.0*20
 
                 #buff[1] = buff[1]
-                np.savetxt('%s/%s/%d.csv' % (path, name, i) , buff_int, delimiter=',', fmt='%.6f')
+                check_stat = read_single_char("%s/scan_state.txt" % path)
+                if check_stat == 1: np.savez_compressed(f'{path}/{name}/{i}.npz', data=buff_int)
                 #print(i)
                 i += 1
 
                 self.signals.data.emit(buff_float)  # Отправляем данные в основной поток
 
-                check_stat = read_single_char("%s/scan_state.txt" % path)
+                #check_stat = read_single_char("%s/scan_state.txt" % path) # возможно это теперь можно убрать
                 #time.sleep(0)  # чтобы не грузить CPU
 
             #time.sleep(0)
