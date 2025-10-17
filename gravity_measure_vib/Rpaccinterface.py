@@ -142,20 +142,10 @@ class Worker(QRunnable):
 
         write_char("%s/scan_state.txt" % path, '0')
         
+        buff_array = []
         while self._is_running:
             
             check_stat = read_single_char("%s/scan_state.txt" % path)
-            if check_stat == '1':
-                i = 0
-                name = datetime.now()
-                name = name.strftime("%d%m%y%H%M%S")
-                ran_pref = f"{random.randint(0, 99):02d}"
-                name = ran_pref+name
-                if not os.path.exists("%s/%s" % (path, name)):
-                    os.mkdir("%s/%s" % (path, name))
-                # start_time = time.time()
-
-
             while self._is_running and check_stat == '1':
                 
                 rp.tx_txt('ACQ:RST')
@@ -203,14 +193,22 @@ class Worker(QRunnable):
 
                 #buff[1] = buff[1]
                 check_stat = read_single_char("%s/scan_state.txt" % path)
-                if check_stat == 1: np.save(f'{path}/{name}/{i}.npy', buff_int1)
-                #print(i)
-                i += 1
+                if check_stat == 1: buff_array.append(buff_int1) #np.save(f'{path}/{name}/{i}.npy', buff_int1)
 
                 self.signals.data.emit((buff_int1, buff_int2))  # Эмитируем tuple для обоих каналов
 
                 #check_stat = read_single_char("%s/scan_state.txt" % path) # возможно это теперь можно убрать
                 #time.sleep(0)  # чтобы не грузить CPU
+
+            if len(buff_array) != 0:
+                name = datetime.now()
+                name = name.strftime("%d%m%y%H%M%S")
+                ran_pref = f"{random.randint(0, 99):02d}"
+                ln = f"{len(buff_array)}"
+                name = ran_pref+name+ln
+                buff_array = np(buff_array)
+                np.save(f'{path}/{name}.npy', buff_array)
+                buff_array = []
 
             #time.sleep(0)
 
@@ -316,6 +314,7 @@ class MainWindow(QWidget):
 
         # Синхронизируем шкалы x для обоих графиков (опционально, чтобы легко сравнивать)
         self.plot_widget_ch1.setXLink(self.plot_widget_ch2)  # CH1 х-ось связана с CH2
+        self.plot_widget_ch1.setXRange(0., self.ttime_input.value())
 
         # Создаём главный горизонтальный layout
         main_layout = QHBoxLayout()
@@ -417,15 +416,15 @@ class MainWindow(QWidget):
             ch1, ch2 = data
             ch1_proc = (ch1.astype(np.float32) + 168) / 8191.0 * 20
             ch2_proc = (ch2.astype(np.float32) + 168) / 8191.0 * 20
-            self.plot1.setData(time_axis, ch1_proc)
-            self.plot2.setData(time_axis, ch2_proc)
+            self.plot1.setData(ch1_proc)
+            self.plot2.setData(ch2_proc)
         elif isinstance(data, np.ndarray):
             # Continuous mode: только CH1
             if data.dtype == np.int16:
                 proc = (data.astype(np.float32) + 168) / 8191.0 * 20
             else:
                 proc = data
-            self.plot1.setData(time_axis, proc)
+            self.plot1.setData(proc)
             # CH2 очищаем (не рисуем)
         else:
             print("Unknown data type received")

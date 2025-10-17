@@ -614,12 +614,12 @@ acc_mx = acc_mx - np.mean(acc_mx)
 #print(np.mean(acc_mx))
 acc_mx = acc_mx[1:]
 
-StI = 6031
-TFF = 1.4559080155761608
+StI = 5700
+TFF = 1.45 #1.4559080155761608
 singleWork(StI, TFF)
 
-# delay1 = 6025
-# delay2 = 7000
+# delay1 = 0
+# delay2 = 150
 # a = -10.
 # b = 10.
 # optimalFind(delay1, delay2, a, b)
