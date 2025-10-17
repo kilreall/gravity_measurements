@@ -11,6 +11,10 @@ import os
 import numpy as np
 import redpitaya_scpi as scpi
 import pyqtgraph as pg
+pg.setConfigOption('background', 'w')  # Белый фон
+pg.setConfigOption('foreground', 'k')  # Чёрные линии и текст
+
+N = 16384
 
 def read_single_char(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -182,25 +186,28 @@ class Worker(QRunnable):
 
                 #time.sleep(0)
                 if not self._is_running or check_stat == '0':
-                    rp.tx_txt('ACQ:STOP')
+                    rp.tx_txt('ACQ:RST')
                     break
 
                 rp.tx_txt('ACQ:SOUR1:DATA?')
-                buff_bin = rp.rx_arb()
+                buff_bin1 = rp.rx_arb()
+                rp.tx_txt('ACQ:SOUR2:DATA?')
+                buff_bin2 = rp.rx_arb()
                 #rp.tx_txt('ACQ:STOP') # возможно стоит убрать ввиду бессмысленности
                 #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
                 #buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
                 #buff = np.array(buff_string).astype(np.float64)
-                buff_int = np.frombuffer(buff_bin, dtype='>i2')
-                buff_float = (buff_int.astype(np.float16)+168)  / 8191.0*20
+                buff_int1 = np.frombuffer(buff_bin1, dtype='>i2')
+                buff_int2 = np.frombuffer(buff_bin1, dtype='>i2')
+                #buff_float = (buff_int.astype(np.float16)+168)  / 8191.0*20
 
                 #buff[1] = buff[1]
                 check_stat = read_single_char("%s/scan_state.txt" % path)
-                if check_stat == 1: np.savez_compressed(f'{path}/{name}/{i}.npz', data=buff_int)
+                if check_stat == 1: np.save(f'{path}/{name}/{i}.npy', buff_int1)
                 #print(i)
                 i += 1
 
-                self.signals.data.emit(buff_float)  # Отправляем данные в основной поток
+                self.signals.data.emit((buff_int1, buff_int2))  # Эмитируем tuple для обоих каналов
 
                 #check_stat = read_single_char("%s/scan_state.txt" % path) # возможно это теперь можно убрать
                 #time.sleep(0)  # чтобы не грузить CPU
@@ -275,7 +282,7 @@ class MainWindow(QWidget):
         self.ttime_input.setFixedSize(60, 25)
         self.ttime_input.setRange(0, 1000)
         self.ttime_input.setDecimals(3) 
-        self.ttime_input.setValue(134.218) 
+        self.ttime_input.setValue(33.556) 
 
 
         # Main window
@@ -294,9 +301,21 @@ class MainWindow(QWidget):
         self.stop_workers_button.setFixedSize(100, 35)
         self.stop_workers_button.clicked.connect(self.stop_workers)
 
-        # pyqtgraph виджет
-        self.plot_widget = pg.PlotWidget()
-        self.plot = self.plot_widget.plot()
+        # Создаём два отдельных PlotWidget для CH1 и CH2 с независимыми шкалами y
+        self.plot_widget_ch1 = pg.PlotWidget()
+        self.plot_widget_ch1.setTitle('CH1')
+        self.plot_widget_ch1.showGrid(x=True, y=True)
+        self.plot_widget_ch1.addLegend()
+        self.plot1 = self.plot_widget_ch1.plot(pen=pg.mkPen(color='b', width=1), name='CH1')
+
+        self.plot_widget_ch2 = pg.PlotWidget()
+        self.plot_widget_ch2.setTitle('CH2')
+        self.plot_widget_ch2.showGrid(x=True, y=True)
+        self.plot_widget_ch2.addLegend()
+        self.plot2 = self.plot_widget_ch2.plot(pen=pg.mkPen(color='r', width=1), name='CH2')
+
+        # Синхронизируем шкалы x для обоих графиков (опционально, чтобы легко сравнивать)
+        self.plot_widget_ch1.setXLink(self.plot_widget_ch2)  # CH1 х-ось связана с CH2
 
         # Создаём главный горизонтальный layout
         main_layout = QHBoxLayout()
@@ -322,7 +341,8 @@ class MainWindow(QWidget):
 
         # Правая колонка с рисунком
         right_layout = QVBoxLayout()
-        right_layout.addWidget(self.plot_widget)
+        right_layout.addWidget(self.plot_widget_ch1)
+        right_layout.addWidget(self.plot_widget_ch2)  # Добавляем оба виджета стеком (вертикально)
 
         # Добавляем левую и правую части в главный горизонтальный layout
         main_layout.addLayout(left_layout)
@@ -388,9 +408,27 @@ class MainWindow(QWidget):
         print("Continious acquistion finished execution")
         self.worker2 = None
 
-    @pyqtSlot(np.ndarray)
-    def update_plot(self, buff):
-        self.plot.setData(buff)
+    @pyqtSlot(object)
+    def update_plot(self, data):
+        ttime = self.ttime_input.value()
+        time_axis = np.linspace(0, ttime, N)
+        if isinstance(data, tuple) and len(data) == 2:
+            # Trigger mode: два канала
+            ch1, ch2 = data
+            ch1_proc = (ch1.astype(np.float32) + 168) / 8191.0 * 20
+            ch2_proc = (ch2.astype(np.float32) + 168) / 8191.0 * 20
+            self.plot1.setData(time_axis, ch1_proc)
+            self.plot2.setData(time_axis, ch2_proc)
+        elif isinstance(data, np.ndarray):
+            # Continuous mode: только CH1
+            if data.dtype == np.int16:
+                proc = (data.astype(np.float32) + 168) / 8191.0 * 20
+            else:
+                proc = data
+            self.plot1.setData(time_axis, proc)
+            # CH2 очищаем (не рисуем)
+        else:
+            print("Unknown data type received")
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

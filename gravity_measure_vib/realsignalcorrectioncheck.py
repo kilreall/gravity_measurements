@@ -148,11 +148,11 @@ def optimize_for_sti(StI, a, b):
     res = minimize_scalar(lambda TFF: fitcoef(TFF, fvib), bounds=(a, b), method='bounded')
     return (StI, res.x, res.fun)
 
-def optimalFind(delay, a , b): # find coef for acc
+def optimalFind(delay1, delay2, a , b): # find coef for acc
     
 
     # Диапазон возможных целых значений StI
-    StI_range = range(0, delay)  # Диапазон значений StI
+    StI_range = range(delay1, delay2)  # Диапазон значений StI
     results = Parallel(n_jobs=-1)(delayed(optimize_for_sti)(StI, a, b) for StI in StI_range)
 
     # Найдём лучший результат
@@ -234,45 +234,45 @@ def singleWork(StI, TFF):
     print("sensetivity for averaged data =", dgAv*np.sqrt(TF*n)*r, 'mGal/.')
     plt.plot(chirp0, Aa*np.sin(wa*chirp0+pha) + sa, color="black")
 
-    # # sensetivity for averaged g
-    # dgMX = []
-    # g0 = 9.955
-    # for j in range(len(intensity)//n):
-    #     initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
-    #     par, cov = curve_fit(sins, chirp0, intensity[j*n:n*(j+1)], p0=initial_guess)
-    #     Aa, wa, pha, sa = par
+    # sensetivity for averaged g
+    dgMX = []
+    g0 = 9.955
+    for j in range(len(intensity)//n):
+        initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
+        par, cov = curve_fit(sins, chirp0, intensity[j*n:n*(j+1)], p0=initial_guess)
+        Aa, wa, pha, sa = par
 
-    #     if j == 0:
-    #         m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
-    #         gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
-    #         dgMX.append(gj)
-    #     else:
-    #         np_buff = np.array(gj)
-    #         mean_buff = np.mean(np_buff)
-    #         m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
-    #         gj0 = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
-    #         gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
-    #         gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
-    #         if abs(gj1-mean_buff) < abs(gj0-mean_buff):
-    #             m += 1
-    #             gj0 = gj1
-    #             gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
-    #             while abs(gj1-mean_buff) < abs(gj0-mean_buff):
-    #                 m += 1
-    #                 gj0 = gj1
-    #                 gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
-    #         elif abs(gj_1-mean_buff) < abs(gj0-mean_buff):
-    #             m -= 1
-    #             gj0 = gj_1
-    #             gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
-    #             while abs(gj_1-mean_buff) < abs(gj0-mean_buff):
-    #                 m -= 1
-    #                 gj0 = gj_1
-    #                 gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
-    #         dgMX.append(gj0)    
-    # dgMX = np.array(dgMX)
-    # print("list of g", dgMX)
-    # print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mGal/.')
+        if j == 0:
+            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+            gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+            dgMX.append(gj)
+        else:
+            np_buff = np.array(gj)
+            mean_buff = np.mean(np_buff)
+            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+            gj0 = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+            gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+            gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+            if abs(gj1-mean_buff) < abs(gj0-mean_buff):
+                m += 1
+                gj0 = gj1
+                gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+                while abs(gj1-mean_buff) < abs(gj0-mean_buff):
+                    m += 1
+                    gj0 = gj1
+                    gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+            elif abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+                m -= 1
+                gj0 = gj_1
+                gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+                while abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+                    m -= 1
+                    gj0 = gj_1
+                    gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+            dgMX.append(gj0)    
+    dgMX = np.array(dgMX)
+    print("list of g", dgMX)
+    print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mGal/.')
 
     # evaluate vibration influence block1
     intensity_clear = A*np.sin(w*chirp_rate+ph)+s
@@ -575,13 +575,13 @@ k = k*2*np.pi
 #print(k)
 # start_freq = 90582400/70*5282
 # dt = 30e-3 # s для чирпирования
-n = 101 # количество точек
-T = 10200e-6 # s временной интервал между пи импульсами
+n = 41 # количество точек
+T = 8200e-6 # s временной интервал между пи импульсами
 M = 0
 Tg = 0.00357# T1:0.4;T2:0.089;T4:0.0226;T6:0.0109;T8:0.0061;T10:0.00357;T12:0.0027; # пристрелка периода для fitа
 gR = 9.68
 Tf = 30528*1e-6 # полное време подготовки атомов
-ty = 25e-6 # s длительность pi/2 импульса
+ty = 20e-6 # s длительность pi/2 импульса
 Tpause = 500e-3
 TF = Tf+2*T+Tpause+4*ty # point time
 TAI = 2*T+4*ty
@@ -601,7 +601,7 @@ r = 100000 # коэф единиц измерения
 sk = 1 # коэф поправки для оценки погрешности
 
 # чтение csv P(a)
-file_path = r'gravity_measure_vib/testdata/37290925191200/interference_signal.csv' 
+file_path = r'gravity_measure_vib/testdata/iteration 2/noisy data/noisy_data.csv' 
 data = np.genfromtxt(file_path, delimiter=',', dtype=None, skip_header=1)
 data = np.array(data.tolist())
 
@@ -609,19 +609,21 @@ chirp_rate = data[:,0]
 intensity = data[:,1]
 
 # acc data read
-acc_mx = csv_np('gravity_measure_vib/testdata/37290925191200')/150/Ampl
+acc_mx = csv_np('gravity_measure_vib/testdata/iteration 2/noisy data/18161025164958')/150/Ampl
 acc_mx = acc_mx - np.mean(acc_mx)
-#acc_mx = acc_mx[:-1]
+#print(np.mean(acc_mx))
+acc_mx = acc_mx[1:]
 
-StI = 0
-TFF =  1.81
-#singleWork(StI, TFF)
+StI = 6031
+TFF = 1.4559080155761608
+singleWork(StI, TFF)
 
-delay = 150
-a = -10.
-b = 10.
-optimalFind(delay+1, a, b)
-print(delay, a, b)
+# delay1 = 6025
+# delay2 = 7000
+# a = -10.
+# b = 10.
+# optimalFind(delay1, delay2, a, b)
+# print(delay1, delay2, a, b)
 
 # i = 3
 # phaseCheck(i, StI, TFF)
