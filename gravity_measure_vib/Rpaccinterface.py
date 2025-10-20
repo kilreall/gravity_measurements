@@ -18,7 +18,7 @@ N = 16384
 
 def read_single_char(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
-        return int(f.read(1))
+        return f.read(1)
 
 
 def write_char(file_path, char):
@@ -91,7 +91,7 @@ class Worker2(QRunnable):
 # trigger mode acquisition
 class WorkerSignals(QObject):
     finished = pyqtSignal()
-    data = pyqtSignal(np.ndarray)  # Добавляем сигнал с данными
+    data = pyqtSignal(tuple)  # Добавляем сигнал с данными
 
 class Worker(QRunnable):
     def __init__(self, ip, dec, tl, path, ttime, delay):
@@ -143,6 +143,7 @@ class Worker(QRunnable):
         write_char("%s/scan_state.txt" % path, '0')
         
         buff_array = []
+        buff_array1 = []
         while self._is_running:
             
             check_stat = read_single_char("%s/scan_state.txt" % path)
@@ -188,27 +189,36 @@ class Worker(QRunnable):
                 #buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
                 #buff = np.array(buff_string).astype(np.float64)
                 buff_int1 = np.frombuffer(buff_bin1, dtype='>i2')
-                buff_int2 = np.frombuffer(buff_bin1, dtype='>i2')
+                buff_int2 = np.frombuffer(buff_bin2, dtype='>i2')
                 #buff_float = (buff_int.astype(np.float16)+168)  / 8191.0*20
 
                 #buff[1] = buff[1]
                 check_stat = read_single_char("%s/scan_state.txt" % path)
-                if check_stat == 1: buff_array.append(buff_int1) #np.save(f'{path}/{name}/{i}.npy', buff_int1)
+                if check_stat == '1':
+                    print(np.mean(buff_int1))
+                    buff_array.append(buff_int1) #np.save(f'{path}/{name}/{i}.npy', buff_int1)
+                    buff_array1.append(buff_int2)
 
                 self.signals.data.emit((buff_int1, buff_int2))  # Эмитируем tuple для обоих каналов
 
                 #check_stat = read_single_char("%s/scan_state.txt" % path) # возможно это теперь можно убрать
                 #time.sleep(0)  # чтобы не грузить CPU
 
+            #print(len(buff_array))
             if len(buff_array) != 0:
                 name = datetime.now()
                 name = name.strftime("%d%m%y%H%M%S")
                 ran_pref = f"{random.randint(0, 99):02d}"
                 ln = f"{len(buff_array)}"
                 name = ran_pref+name+ln
-                buff_array = np(buff_array)
+                #print("here")
+                print(len(buff_array))
+                #buff_array = np(buff_array)
+                #buff_array1 = np(buff_array1)
                 np.save(f'{path}/{name}.npy', buff_array)
+                np.save(f'{path}/{name}trig.npy', buff_array1)
                 buff_array = []
+                buff_array1 = []
 
             #time.sleep(0)
 

@@ -575,7 +575,7 @@ k = k*2*np.pi
 #print(k)
 # start_freq = 90582400/70*5282
 # dt = 30e-3 # s для чирпирования
-n = 41 # количество точек
+n = 101 # количество точек
 T = 8200e-6 # s временной интервал между пи импульсами
 M = 0
 Tg = 0.00357# T1:0.4;T2:0.089;T4:0.0226;T6:0.0109;T8:0.0061;T10:0.00357;T12:0.0027; # пристрелка периода для fitа
@@ -587,7 +587,7 @@ TF = Tf+2*T+Tpause+4*ty # point time
 TAI = 2*T+4*ty
 OR = np.pi/2/ty
 TRP = 33.556e-3 # время сбора данных red pitaya'ей
-Ampl = 50
+Ampl = 20
 dt = TRP/16383 # Red Pitaya time step
 iTAI = int(np.floor(TAI/dt))
 ta = np.arange(0, 16384)*dt
@@ -601,25 +601,31 @@ r = 100000 # коэф единиц измерения
 sk = 1 # коэф поправки для оценки погрешности
 
 # чтение csv P(a)
-file_path = r'gravity_measure_vib/testdata/iteration 2/noisy data/noisy_data.csv' 
+file_path = r'gravity_measure_vib/testdata/vibration_comp 20-10-2025/v3/interference_signal.csv' 
 data = np.genfromtxt(file_path, delimiter=',', dtype=None, skip_header=1)
 data = np.array(data.tolist())
 
-chirp_rate = data[:,0]
-intensity = data[:,1]
+chirp_rate = data[:-1,0]
+intensity = data[:-1,1]
 
 # acc data read
-acc_mx = csv_np('gravity_measure_vib/testdata/iteration 2/noisy data/18161025164958')/150/Ampl
+
+#acc_mx = csv_np('gravity_measure_vib/testdata/iteration 2/noisy data/18161025164958')/150/Ampl
+
+acc_mx = np.load('gravity_measure_vib/testdata/vibration_comp 20-10-2025/v3/14201025194043403.npy')
+acc_mx = (acc_mx.astype(np.float32) + 168)/ 8191.0 * 20 / 150 / Ampl
 acc_mx = acc_mx - np.mean(acc_mx)
 #print(np.mean(acc_mx))
-acc_mx = acc_mx[1:]
+#acc_mx = acc_mx[]
 
-StI = 5700
-TFF = 1.45 #1.4559080155761608
+StI = 6854
+TFF = 1.377564247762063
 singleWork(StI, TFF)
 
-# delay1 = 0
-# delay2 = 150
+
+
+# delay1 = 6499
+# delay2 = 7200
 # a = -10.
 # b = 10.
 # optimalFind(delay1, delay2, a, b)
