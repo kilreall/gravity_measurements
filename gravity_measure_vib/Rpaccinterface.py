@@ -142,28 +142,28 @@ class Worker(QRunnable):
 
         write_char("%s/scan_state.txt" % path, '0')
         
+        rp.tx_txt('ACQ:RST')
+
+        rp.tx_txt(f"ACQ:DEC:Factor {dec}")
+        rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
+        rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
+        rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
+        rp.tx_txt(f'ACQ:TRig:DLY {delay}')
+        rp.tx_txt('ACQ:SOUR1:GAIN HV')
+        rp.tx_txt('ACQ:SOUR2:GAIN HV')
+
+        rp.tx_txt('ACQ:START')
+        rp.tx_txt(f"ACQ:TRig {acq_trig}")
+
         buff_array = []
         buff_array1 = []
         while self._is_running:
-            
+            st = time.time()
             check_stat = read_single_char("%s/scan_state.txt" % path)
             while self._is_running and check_stat == '1':
-                
-                rp.tx_txt('ACQ:RST')
-
-                rp.tx_txt(f"ACQ:DEC:Factor {dec}")
-                rp.tx_txt(f"ACQ:DATA:Units {data_units.upper()}")
-                rp.tx_txt(f"ACQ:DATA:FORMAT {data_format.upper()}")
-                rp.tx_txt(f"ACQ:TRig:LEV {trig_lvl}")
-                rp.tx_txt(f'ACQ:TRig:DLY {delay}')
-                rp.tx_txt('ACQ:SOUR1:GAIN HV')
-                rp.tx_txt('ACQ:SOUR2:GAIN HV')
-
-
-                rp.tx_txt('ACQ:START')
-                rp.tx_txt(f"ACQ:TRig {acq_trig}")
 
                 check_stat = read_single_char("%s/scan_state.txt" % path)
+
                 while self._is_running and check_stat == '1':
                     rp.tx_txt('ACQ:TRig:STAT?')
                     if rp.rx_txt() == 'TD':
@@ -184,6 +184,9 @@ class Worker(QRunnable):
                 buff_bin1 = rp.rx_arb()
                 rp.tx_txt('ACQ:SOUR2:DATA?')
                 buff_bin2 = rp.rx_arb()
+
+                rp.tx_txt('ACQ:START')
+                rp.tx_txt(f"ACQ:TRig {acq_trig}")
                 #rp.tx_txt('ACQ:STOP') # возможно стоит убрать ввиду бессмысленности
                 #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
                 #buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
@@ -195,7 +198,7 @@ class Worker(QRunnable):
                 #buff[1] = buff[1]
                 check_stat = read_single_char("%s/scan_state.txt" % path)
                 if check_stat == '1':
-                    print(np.mean(buff_int1))
+                    #print(np.mean(buff_int1))
                     buff_array.append(buff_int1) #np.save(f'{path}/{name}/{i}.npy', buff_int1)
                     buff_array1.append(buff_int2)
 
@@ -205,6 +208,8 @@ class Worker(QRunnable):
                 #time.sleep(0)  # чтобы не грузить CPU
 
             #print(len(buff_array))
+            ft = time.time()
+            print((ft-st)*1e3)
             if len(buff_array) != 0:
                 name = datetime.now()
                 name = name.strftime("%d%m%y%H%M%S")
