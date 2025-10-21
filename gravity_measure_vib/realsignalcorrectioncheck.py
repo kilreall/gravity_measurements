@@ -215,11 +215,17 @@ def singleWork(StI, TFF):
 
     plt.figure(1)
     #plt.scatter(chirp0, intensity0, color="black", label="averaged", s=10)
-    plt.scatter(chirp_rate, intensity, color="orange", label="experimental", s=10)
-    #plt.plot(chirp_rate[2*n:n*3], intensity[2*n:n*3], color="red", linewidth=1)
+    #plt.scatter(chirp_rate, intensity, color="orange", label="experimental", s=10)
+    #plt.plot(chirp_rate[2*n:n*3], intensity[2*n:n*3], color="orange", linewidth=1)
     plt.xlabel('chirp rate')
     plt.ylabel('signal')
-    plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
+    #plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
+
+    # correct data demonstration for presentation
+    chirpd = chirp_rate[2*n:n*3]
+    intensd = intensity[2*n:n*3]
+    plt.scatter(chirpd, intensd, color="orange", label="experimental", s=10)
+    plt.plot(chirpd, intensd, color="orange", linewidth=1)
 
     # fit average data
     initial_guess = [(np.max(intensity0) - np.min(intensity0))/2, 2*np.pi*T*T, 0, np.min(intensity0)] 
@@ -314,18 +320,18 @@ def singleWork(StI, TFF):
     fvib = k*simpson(y=intvib, x=tan, axis=-1)*TFF
     chirp_rate = chirp_rate - fvib/T**2/(2*np.pi) # + or -, 2pi?
 
-    plt.plot(chirp_rate, intensity, color="green")
-    plt.scatter(chirp_rate, intensity, color="green", label="corrected", s=10)
+    #plt.plot(chirp_rate, intensity, color="green")
+    #plt.scatter(chirp_rate, intensity, color="green", label="corrected", s=10)
     #plt.plot(chirp_rate, intensity, color="green", linewidth=1)
 
-    # # correct data demonstration for presentation
-    # chirpd = chirp_rate[3*n:n*4]
-    # intensd = intensity[3*n:n*4]
-    # sort_indices = np.argsort(chirpd)
-    # chirpd = chirpd[sort_indices]
-    # intensd = intensd[sort_indices]
-    # plt.plot(chirpd, intensd, color="red")
-    # plt.scatter(chirpd, intensd, color="red", label="corrected", s=10)
+    # correct data demonstration for presentation
+    chirpd = chirp_rate[2*n:n*3]
+    intensd = intensity[2*n:n*3]
+    sort_indices = np.argsort(chirpd)
+    chirpd = chirpd[sort_indices]
+    intensd = intensd[sort_indices]
+    plt.plot(chirpd, intensd, color="red")
+    plt.scatter(chirpd, intensd, color="red", label="corrected", s=10)
 
     # evaluate vibration influence block3
     
@@ -365,7 +371,7 @@ def singleWork(StI, TFF):
 
     print("sensetivity for corrected data =", dgC*np.sqrt(TF*n)*r, 'mGal/.')
     chirp_rate = np.sort(chirp_rate)
-    plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue")
+    plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue", linewidth=0.5)
 
     # # sensetivity for averaged g afer correction
     # dgMX = []
@@ -595,8 +601,8 @@ Tpause = 500e-3
 TF = Tf+2*T+Tpause+4*ty # point time
 TAI = 2*T+4*ty
 OR = np.pi/2/ty
-TRP = 33.556e-3/2 # время сбора данных red pitaya'ей
-Ampl = 50
+TRP = 33.556e-3 # время сбора данных red pitaya'ей
+Ampl = 20
 dt = TRP/16383 # Red Pitaya time step
 iTAI = int(np.floor(TAI/dt))
 ta = np.arange(0, 16384)*dt
@@ -610,35 +616,35 @@ r = 100000 # коэф единиц измерения
 sk = 1 # коэф поправки для оценки погрешности
 
 # чтение csv P(a)
-file_path = r'gravity_measure_vib\testdata\vibration_comp 20-10-2025\v1\int_data.csv' 
+file_path = r'gravity_measure_vib\testdata\vibration_comp 20-10-2025\v2\int_data.csv' 
 data = np.genfromtxt(file_path, delimiter=',', dtype=None, skip_header=1)
 data = np.array(data.tolist())
 
-chirp_rate = data[:,0]
-intensity = data[:,1]
+chirp_rate = data[:-1,0]
+intensity = data[:-1,1]
 
 # acc data read
 
 #acc_mx = csv_np('gravity_measure_vib/testdata/iteration 2/noisy data/18161025164958')/150/Ampl
 
-acc_mx = np.load(r'gravity_measure_vib\testdata\vibration_comp 20-10-2025\v1\21201025172046625.npy')
+acc_mx = np.load(r'gravity_measure_vib\testdata\vibration_comp 20-10-2025\v2\57201025193210504.npy')
 acc_mx = (acc_mx.astype(np.float32) + 168)/ 8191.0 * 20 / 150 / Ampl
 acc_mx = acc_mx - np.mean(acc_mx)
 #print(np.mean(acc_mx))
 #acc_mx = acc_mx[:]
 
-StI = 0# 6161 v2 # 6854 v3
-TFF = 1 # 1.3553447231042612 v2 # 1.377564247762063 v3
-#singleWork(StI, TFF)
+StI = 6161# 6161 v2 # 6854 v3
+TFF = 1.3553447231042612 # 1.3553447231042612 v2 # 1.377564247762063 v3
+singleWork(StI, TFF)
 
 
 
-delay1 = 249
-delay2 = 300
-a = 0.1
-b = 5.
-optimalFind(delay1, delay2, a, b)
-print(delay1, delay2, a, b)
+# delay1 = 249
+# delay2 = 300
+# a = 0.1
+# b = 5.
+# optimalFind(delay1, delay2, a, b)
+# print(delay1, delay2, a, b)
 
 #i = 20
 #phaseCheck(i, StI, TFF)
