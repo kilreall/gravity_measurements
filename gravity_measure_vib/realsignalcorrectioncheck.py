@@ -601,7 +601,7 @@ r = 100000 # коэф единиц измерения
 sk = 1 # коэф поправки для оценки погрешности
 
 # чтение csv P(a)
-file_path = r'gravity_measure_vib/testdata/vibration_comp 20-10-2025/v3/interference_signal.csv' 
+file_path = r'gravity_measure_vib\testdata\vibration_comp 20-10-2025\v2\int_data.csv' 
 data = np.genfromtxt(file_path, delimiter=',', dtype=None, skip_header=1)
 data = np.array(data.tolist())
 
@@ -612,26 +612,26 @@ intensity = data[:-1,1]
 
 #acc_mx = csv_np('gravity_measure_vib/testdata/iteration 2/noisy data/18161025164958')/150/Ampl
 
-acc_mx = np.load('gravity_measure_vib/testdata/vibration_comp 20-10-2025/v3/14201025194043403.npy')
+acc_mx = np.load(r'gravity_measure_vib\testdata\vibration_comp 20-10-2025\v2\57201025193210504.npy')
 acc_mx = (acc_mx.astype(np.float32) + 168)/ 8191.0 * 20 / 150 / Ampl
 acc_mx = acc_mx - np.mean(acc_mx)
 #print(np.mean(acc_mx))
-#acc_mx = acc_mx[]
+#acc_mx = acc_mx[:]
 
-StI = 6854
-TFF = 1.377564247762063
+StI = 6161# 6161 v2 # 6854 v3
+TFF = 1.3553447231042612 # 1.3553447231042612 v2 # 1.377564247762063
 singleWork(StI, TFF)
 
 
 
-# delay1 = 6499
-# delay2 = 7200
-# a = -10.
-# b = 10.
+# delay1 = 0
+# delay2 = 7000
+# a = 0.1
+# b = 5.
 # optimalFind(delay1, delay2, a, b)
 # print(delay1, delay2, a, b)
 
-# i = 3
-# phaseCheck(i, StI, TFF)
+#i = 20
+#phaseCheck(i, StI, TFF)
 
 #sensCount()
