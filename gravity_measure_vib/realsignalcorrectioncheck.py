@@ -11,6 +11,45 @@ from scipy.integrate import simpson
 from joblib import Parallel, delayed
 from scipy.signal import find_peaks
 
+def averg(g0, chirp_rate, intensity):
+    dgMX = []
+    for j in range(len(intensity)//n):
+        initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
+        par, cov = curve_fit(sins, chirp_rate[j*n:(j+1)*n], intensity[j*n:n*(j+1)], p0=initial_guess)
+        Aa, wa, pha, sa = par
+
+        if j == 0:
+            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+            gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+            dgMX.append(gj)
+        else:
+            np_buff = np.array(gj)
+            mean_buff = np.mean(np_buff)
+            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
+            gj0 = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
+            gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+            gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+            if abs(gj1-mean_buff) < abs(gj0-mean_buff):
+                m += 1
+                gj0 = gj1
+                gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+                while abs(gj1-mean_buff) < abs(gj0-mean_buff):
+                    m += 1
+                    gj0 = gj1
+                    gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
+            elif abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+                m -= 1
+                gj0 = gj_1
+                gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+                while abs(gj_1-mean_buff) < abs(gj0-mean_buff):
+                    m -= 1
+                    gj0 = gj_1
+                    gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
+            dgMX.append(gj0)    
+    dgMX = np.array(dgMX)
+    print("list of g", dgMX)
+    dg = np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)
+    return dg
 
 def aver(a):
     # усреднение
@@ -221,7 +260,7 @@ def singleWork(StI, TFF):
     plt.ylabel('signal')
     #plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
 
-    # correct data demonstration for presentation
+    # start data demonstration for presentation
     chirpd = chirp_rate[2*n:n*3]
     intensd = intensity[2*n:n*3]
     plt.scatter(chirpd, intensd, color="orange", label="experimental", s=10)
@@ -241,45 +280,9 @@ def singleWork(StI, TFF):
     print("sensetivity for averaged data =", dgAv*np.sqrt(TF*n)*r, 'mGal/.')
     #plt.plot(chirp0, Aa*np.sin(wa*chirp0+pha) + sa, color="black")
 
-    # sensetivity for averaged g
-    dgMX = []
-    g0 = 9.955
-    for j in range(len(intensity)//n):
-        initial_guess = [(np.max(intensity[j*n:j*n+n]) - np.min(intensity[j*n:(j+1)*n]))/2, 2*np.pi*T*T, 0, np.min(intensity[j*n:(j+1)*n])] 
-        par, cov = curve_fit(sins, chirp0, intensity[j*n:n*(j+1)], p0=initial_guess)
-        Aa, wa, pha, sa = par
-
-        if j == 0:
-            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
-            gj = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
-            dgMX.append(gj)
-        else:
-            np_buff = np.array(gj)
-            mean_buff = np.mean(np_buff)
-            m = round((wa*k*g0/2/np.pi+pha-np.pi/2)/np.pi)
-            gj0 = (np.pi/2+np.pi*m-pha)/wa*2*np.pi/k
-            gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
-            gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
-            if abs(gj1-mean_buff) < abs(gj0-mean_buff):
-                m += 1
-                gj0 = gj1
-                gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
-                while abs(gj1-mean_buff) < abs(gj0-mean_buff):
-                    m += 1
-                    gj0 = gj1
-                    gj1 = (np.pi/2+np.pi*(m+1)-pha)/wa*2*np.pi/k
-            elif abs(gj_1-mean_buff) < abs(gj0-mean_buff):
-                m -= 1
-                gj0 = gj_1
-                gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
-                while abs(gj_1-mean_buff) < abs(gj0-mean_buff):
-                    m -= 1
-                    gj0 = gj_1
-                    gj_1 = (np.pi/2+np.pi*(m-1)-pha)/wa*2*np.pi/k
-            dgMX.append(gj0)    
-    dgMX = np.array(dgMX)
-    print("list of g", dgMX)
-    print("sensetivity for averaged g =",np.std(dgMX)/np.sqrt(len(dgMX))*np.sqrt(TF*n)*r, 'mGal/.')
+    # sensetivity for averaged g before compensation
+    dgAvg = averg(9.955, chirp_rate, intensity)
+    print("sensetivity for averaged g before compensation =", dgAvg*r, 'mGal/.')
 
     # evaluate vibration influence block1
     intensity_clear = A*np.sin(w*chirp_rate+ph)+s
@@ -330,7 +333,7 @@ def singleWork(StI, TFF):
     sort_indices = np.argsort(chirpd)
     chirpd = chirpd[sort_indices]
     intensd = intensd[sort_indices]
-    plt.plot(chirpd, intensd, color="red")
+    plt.plot(chirpd, intensd, color="red", linewidth=2)
     plt.scatter(chirpd, intensd, color="red", label="corrected", s=10)
 
     # evaluate vibration influence block3
@@ -371,7 +374,11 @@ def singleWork(StI, TFF):
 
     print("sensetivity for corrected data =", dgC*np.sqrt(TF*n)*r, 'mGal/.')
     chirp_rate = np.sort(chirp_rate)
-    plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue", linewidth=0.5)
+    plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue", linewidth=0.7)
+
+    # sensetivity for averaged g after compensation
+    # dgAvg = averg(9.956, chirp_rate, intensity)
+    # print("sensetivity for averaged g after compensation =", dgAvg*r, 'mGal/.')
 
     # # sensetivity for averaged g afer correction
     # dgMX = []
