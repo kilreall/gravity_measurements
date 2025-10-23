@@ -152,32 +152,40 @@ class Worker(QRunnable):
         rp.tx_txt('ACQ:SOUR1:GAIN HV')
         rp.tx_txt('ACQ:SOUR2:GAIN HV')
 
-        rp.tx_txt('ACQ:START')
-        rp.tx_txt(f"ACQ:TRig {acq_trig}")
 
         buff_array = []
         buff_array1 = []
         while self._is_running:
-            st = time.time()
             check_stat = read_single_char("%s/scan_state.txt" % path)
+            i = 0
             while self._is_running and check_stat == '1':
 
-                check_stat = read_single_char("%s/scan_state.txt" % path)
+                rp.tx_txt('ACQ:START')
+                rp.tx_txt(f"ACQ:TRig {acq_trig}")
 
+                check_stat = read_single_char("%s/scan_state.txt" % path) # может не нужен
+
+                st = time.time()
                 while self._is_running and check_stat == '1':
                     rp.tx_txt('ACQ:TRig:STAT?')
                     if rp.rx_txt() == 'TD':
                         break  
                     check_stat = read_single_char("%s/scan_state.txt" % path)
                     #time.sleep(0)
-                
+
+                # if i>0:    
+                #     ft = time.time()
+                #     print('time',(ft-st)*1e3)
+                # st = time.time() 
+
                 #end_time = time.time()
                 #print((end_time-start_time)*1e3, "acq time")
                 #start_time = time.time()
 
                 #time.sleep(0)
                 if not self._is_running or check_stat == '0':
-                    rp.tx_txt('ACQ:RST')
+                    rp.tx_txt('ACQ:START')
+                    rp.tx_txt(f"ACQ:TRig {acq_trig}")
                     break
 
                 rp.tx_txt('ACQ:SOUR1:DATA?')
@@ -185,8 +193,6 @@ class Worker(QRunnable):
                 rp.tx_txt('ACQ:SOUR2:DATA?')
                 buff_bin2 = rp.rx_arb()
 
-                rp.tx_txt('ACQ:START')
-                rp.tx_txt(f"ACQ:TRig {acq_trig}")
                 #rp.tx_txt('ACQ:STOP') # возможно стоит убрать ввиду бессмысленности
                 #rp.tx_txt("ACQ:RST:CH2") # вроде как не нужно
                 #buff_string = buff_string.strip('{}\n\r').replace("  ", "").split(',')
@@ -196,20 +202,18 @@ class Worker(QRunnable):
                 #buff_float = (buff_int.astype(np.float16)+168)  / 8191.0*20
 
                 #buff[1] = buff[1]
-                check_stat = read_single_char("%s/scan_state.txt" % path)
+                check_stat = read_single_char("%s/scan_state.txt" % path) # может не нужен
                 if check_stat == '1':
                     #print(np.mean(buff_int1))
                     buff_array.append(buff_int1) #np.save(f'{path}/{name}/{i}.npy', buff_int1)
                     buff_array1.append(buff_int2)
 
                 self.signals.data.emit((buff_int1, buff_int2))  # Эмитируем tuple для обоих каналов
-
+                i +=1
                 #check_stat = read_single_char("%s/scan_state.txt" % path) # возможно это теперь можно убрать
                 #time.sleep(0)  # чтобы не грузить CPU
 
             #print(len(buff_array))
-            ft = time.time()
-            print((ft-st)*1e3)
             if len(buff_array) != 0:
                 name = datetime.now()
                 name = name.strftime("%d%m%y%H%M%S")
@@ -242,7 +246,7 @@ class MainWindow(QWidget):
         # self.ip = 'rp-f05e99.local'
         self.ip = '192.168.54.171'
         # self.path = 'C:/Users/MakarovAO/Desktop/Adamov_Kirill/gravity_measurements/gravity measure vib/testdata'
-        self.path = r'C:\Users\KapustaDN\PycharmProjects\quantum_sensors_lab\gravimeter gui'
+        self.path = r'C:/Users/MakarovAO/Desktop/Adamov_Kirill/gravity_measurements/gravity_measure_vib/testdata'#'C:\Users\KapustaDN\PycharmProjects\quantum_sensors_lab\gravimeter gui'
         self.threadpool = QThreadPool()
         self.worker = None
         self.worker2 = None
@@ -287,7 +291,7 @@ class MainWindow(QWidget):
         self.delay_input = QSpinBox()
         self.delay_input.setFixedSize(60, 25)
         self.delay_input.setRange(-16000, 16000)
-        self.delay_input.setValue(8192)
+        self.delay_input.setValue(8100)
 
         # time acq window
         self.ttime_label = QLabel("Enter acq time: ms")
