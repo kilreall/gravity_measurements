@@ -627,7 +627,7 @@ r = 100000 # коэф единиц измерения
 sk = 1 # коэф поправки для оценки погрешности
 
 # чтение csv P(a)
-file_path = r'gravity_measure_vib\testdata\2025-10-23\bignoisenohighpass20\interference.csv' 
+file_path = r'gravity_measure_vib\testdata\2025-10-23\bignoisehighpass10\interference.csv' 
 data = np.genfromtxt(file_path, delimiter=',', dtype=None, skip_header=1)
 data = np.array(data.tolist())
 
@@ -638,14 +638,14 @@ intensity = data[50:,1]
 
 #acc_mx = csv_np('gravity_measure_vib/testdata/iteration 2/noisy data/18161025164958')/150/Ampl
 
-acc_mx = np.load(r'gravity_measure_vib\testdata\2025-10-23\bignoisenohighpass20\75231025192157658big.npy')
+acc_mx = np.load(r'gravity_measure_vib\testdata\2025-10-23\bignoisehighpass10\43231025185039620.npy')
 acc_mx = (acc_mx.astype(np.float32) + 168)/ 8191.0 * 20 / 150 / Ampl
 acc_mx = acc_mx - np.mean(acc_mx)
 #print(np.mean(acc_mx))
-acc_mx = acc_mx[50:]
+acc_mx = acc_mx[50:-1]
 
-StI = 8160# 6161 v2 # 6854 v3
-TFF = 1.8807617363354026# 1.3553447231042612 v2 # 1.377564247762063 v3
+StI = 8491#8160 bignoisen0high20 # 6161 v2 # 6854 v3
+TFF = 1.059754919873709 #1.8807617363354026 bignoisen0high20 # 1.3553447231042612 v2 # 1.377564247762063 v3
 singleWork(StI, TFF)
 
 
