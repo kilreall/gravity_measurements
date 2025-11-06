@@ -264,8 +264,8 @@ def singleWork(StI, TFF):
     plt.ylabel('signal')
 
     # start data demonstration for presentation
-    chirpd = chirp_rate[2*n-50:n*3-50]
-    intensd = intensity[2*n-50:n*3-50]
+    chirpd = chirp_rate[2*n:3*n]
+    intensd = intensity[2*n:3*n]
     plt.scatter(chirpd, intensd, color="orange", label="experimental", s=10)
     plt.plot(chirpd, intensd, color="orange", linewidth=1)
 
@@ -328,8 +328,8 @@ def singleWork(StI, TFF):
 
 
     # correct data demonstration for presentation
-    chirpd = chirp_rate[2*n-50:n*3-50]
-    intensd = intensity[2*n-50:n*3-50]
+    chirpd = chirp_rate[2*n:3*n]
+    intensd = intensity[2*n:3*n]
     sort_indices = np.argsort(chirpd)
     chirpd = chirpd[sort_indices]
     intensd = intensd[sort_indices]
@@ -612,7 +612,7 @@ Tpause = 500e-3
 TF = Tf+2*T+Tpause+4*ty # point time
 TAI = 2*T+4*ty
 OR = np.pi/2/ty
-TRP = 33.556e-3*2 # время сбора данных red pitaya'ей
+TRP = 33.556e-3 # время сбора данных red pitaya'ей
 Ampl = 20
 dt = TRP/16383 # Red Pitaya time step
 iTAI = int(np.floor(TAI/dt))
@@ -627,25 +627,25 @@ r = 100000 # коэф единиц измерения
 sk = 1 # коэф поправки для оценки погрешности
 
 # чтение csv P(a)
-file_path = r'gravity_measure_vib\testdata\2025-10-23\bignoisehighpass10\interference.csv' 
+file_path = r'gravity_measure_vib\testdata\vibration_comp 20-10-2025\v2\int_data.csv' 
 data = np.genfromtxt(file_path, delimiter=',', dtype=None, skip_header=1)
 data = np.array(data.tolist())
 
-chirp_rate = data[50:,0]
-intensity = data[50:,1]
+chirp_rate = data[:-1,0]
+intensity = data[:-1,1]
 
 # acc data read
 
 #acc_mx = csv_np('gravity_measure_vib/testdata/iteration 2/noisy data/18161025164958')/150/Ampl
 
-acc_mx = np.load(r'gravity_measure_vib\testdata\2025-10-23\bignoisehighpass10\43231025185039620.npy')
+acc_mx = np.load(r'gravity_measure_vib\testdata\vibration_comp 20-10-2025\v2\57201025193210504.npy')
 acc_mx = (acc_mx.astype(np.float32) + 168)/ 8191.0 * 20 / 150 / Ampl
 acc_mx = acc_mx - np.mean(acc_mx)
 #print(np.mean(acc_mx))
-acc_mx = acc_mx[50:-1]
+acc_mx = acc_mx[:]
 
-StI = 8491#8160 bignoisen0high20 # 6161 v2 # 6854 v3
-TFF = 1.059754919873709 #1.8807617363354026 bignoisen0high20 # 1.3553447231042612 v2 # 1.377564247762063 v3
+StI = 6161# 8491 bignoisehighpass10 #8160 bignoisen0high20 # 6161 v2 # 6854 v3
+TFF = 1.3553447231042612# 1.059754919873709 bignoisehighpass10 #1.8807617363354026 bignoisen0high20 # 1.3553447231042612 v2 # 1.377564247762063 v3
 singleWork(StI, TFF)
 
 
