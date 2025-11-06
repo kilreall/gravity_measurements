@@ -206,7 +206,7 @@ def optimalFind(delay1, delay2, a , b): # find coef for acc
 def singleWork(StI, TFF):
     global chirp_rate, intensity, TF, n
 
-    chirp0 = chirp_rate[n-50:2*n-50]
+    chirp0 = chirp_rate[n:2*n]
     intensity0 = aver(intensity)
     #plt.plot(chirp0, intensity, color="black")
 
@@ -258,15 +258,17 @@ def singleWork(StI, TFF):
     # # start data plot
     # plt.scatter(chirp_rate, intensity, color="orange", label="experimental", s=10)
     # plt.plot(chirp_rate, intensity, color="orange", linewidth=1)
-    plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
+    #plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
 
-    plt.xlabel('chirp rate')
-    plt.ylabel('signal')
+    plt.xlabel('Скорость чирпирования, [МГц]')
+    plt.ylabel('сигнал, [отн.ед]')
 
     # start data demonstration for presentation
-    chirpd = chirp_rate[2*n:3*n]
-    intensd = intensity[2*n:3*n]
-    plt.scatter(chirpd, intensd, color="orange", label="experimental", s=10)
+    norm = np.max(intensity)
+    cs = 1e-6
+    chirpd = chirp_rate[2*n:3*n]*cs
+    intensd = intensity[2*n:3*n]/norm
+    plt.scatter(chirpd, intensd, color="orange", label="'эксперимент'", s=10)
     plt.plot(chirpd, intensd, color="orange", linewidth=1)
 
     # fit average data
@@ -331,10 +333,10 @@ def singleWork(StI, TFF):
     chirpd = chirp_rate[2*n:3*n]
     intensd = intensity[2*n:3*n]
     sort_indices = np.argsort(chirpd)
-    chirpd = chirpd[sort_indices]
-    intensd = intensd[sort_indices]
+    chirpd = chirpd[sort_indices]*cs
+    intensd = intensd[sort_indices]/norm
     plt.plot(chirpd, intensd, color="red", linewidth=2)
-    plt.scatter(chirpd, intensd, color="red", label="corrected", s=10)
+    plt.scatter(chirpd, intensd, color="red", label="скомпенсированные", s=10)
 
     # evaluate vibration influence block3
     
@@ -378,7 +380,7 @@ def singleWork(StI, TFF):
     # plt.scatter(chirp_rate, intensity, color="green", label="corrected", s=10)
     # plt.plot(chirp_rate, intensity, color="green", linewidth=1)
     chirp_rate = np.sort(chirp_rate)
-    plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue", linewidth=0.7)
+    #plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue", linewidth=0.7)
 
     # sensetivity for averaged g after compensation
     # dgAvg = averg(9.956, chirp_rate, intensity)
