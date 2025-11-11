@@ -268,8 +268,8 @@ def singleWork(StI, TFF):
     cs = 1e-6
     chirpd = chirp_rate[2*n:3*n]*cs
     intensd = intensity[2*n:3*n]/norm
-    plt.scatter(chirpd, intensd, color="orange", label="экспериментальные", s=10)
-    plt.plot(chirpd, intensd, color="orange", linewidth=1)
+    plt.scatter(chirpd, intensd, color="green", label="экспериментальные", s=10)
+    plt.plot(chirpd, intensd, color="green", linewidth=1)
 
     # fit average data
     initial_guess = [(np.max(intensity0) - np.min(intensity0))/2, 2*np.pi*T*T, 0, np.min(intensity0)] 
