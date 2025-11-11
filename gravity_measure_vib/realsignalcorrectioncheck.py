@@ -430,7 +430,8 @@ def singleWork(StI, TFF):
 
     print("correction efficiency ga",(dgE-dgC)/dgA*100, "%")
     # print("correction efficiency V",(dgE-dgC)/dgV*100, "%")
-    plt.legend()
+    plt.legend(loc='upper center')
+
 
     plt.figure(2)
     plt.scatter(abs(noise), abs(fvib))
