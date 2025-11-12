@@ -260,7 +260,7 @@ def singleWork(StI, TFF):
     # plt.plot(chirp_rate, intensity, color="orange", linewidth=1)
     #plt.plot(chirp0, A*np.sin(w*chirp0+ph) + s, color="orange")
 
-    plt.xlabel('Скорость чирпирования, [МГц]')
+    plt.xlabel('Скорость чирпирования, [МГц/с]')
     plt.ylabel('сигнал, [отн.ед]')
 
     # start data demonstration for presentation
@@ -430,8 +430,10 @@ def singleWork(StI, TFF):
 
     print("correction efficiency ga",(dgE-dgC)/dgA*100, "%")
     # print("correction efficiency V",(dgE-dgC)/dgV*100, "%")
-    plt.legend(loc='upper center')
-
+    plt.legend(loc='upper center', ncol=3)
+    plt.tight_layout()
+    plt.xlim(25.44820, 25.55365)
+    plt.ylim(0.8270, 1.01)
 
     plt.figure(2)
     plt.scatter(abs(noise), abs(fvib))
