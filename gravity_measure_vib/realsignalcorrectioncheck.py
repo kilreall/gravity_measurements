@@ -270,6 +270,8 @@ def singleWork(StI, TFF):
     intensd = intensity[2*n:3*n]/norm
     plt.scatter(chirpd, intensd, color="green", label="экспериментальные", s=10)
     plt.plot(chirpd, intensd, color="green", linewidth=1)
+    np.savetxt('exp_chirp.csv', chirpd, delimiter=',')
+    np.savetxt('exp_data.csv', intensd, delimiter=',')
 
     # fit average data
     initial_guess = [(np.max(intensity0) - np.min(intensity0))/2, 2*np.pi*T*T, 0, np.min(intensity0)] 
@@ -337,6 +339,8 @@ def singleWork(StI, TFF):
     intensd = intensd[sort_indices]/norm
     plt.plot(chirpd, intensd, color="red", linewidth=2)
     plt.scatter(chirpd, intensd, color="red", label="пост-коррекция", s=10)
+    np.savetxt('corr_chirp.csv', chirpd, delimiter=',')
+    np.savetxt('corr_data.csv', intensd, delimiter=',')
 
     # evaluate vibration influence block3
     
@@ -382,6 +386,8 @@ def singleWork(StI, TFF):
     chirp_rate = np.sort(chirp_rate)
     #plt.plot(chirp_rate, A*np.sin(w*chirp_rate+ph) + s, color="blue", linewidth=0.7)
     plt.plot(chirp_rate*cs, (A*np.sin(w*chirp_rate+ph) + s)/norm, color="blue", linewidth=1, linestyle='--', label ="аппроксимация")
+    np.savetxt('fit_chirp.csv', chirp_rate*cs, delimiter=',')
+    np.savetxt('fit_data.csv', (A*np.sin(w*chirp_rate+ph) + s)/norm, delimiter=',')
 
     # sensetivity for averaged g after compensation
     # dgAvg = averg(9.956, chirp_rate, intensity)
